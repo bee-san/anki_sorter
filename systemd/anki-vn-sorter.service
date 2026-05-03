@@ -1,0 +1,6 @@
+[Unit]
+Description=Request the daily Anki VN sorter run
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env curl --silent --show-error --fail --max-time 15 --request POST http://127.0.0.1:8767/sort

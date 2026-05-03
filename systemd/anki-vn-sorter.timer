@@ -1,0 +1,11 @@
+[Unit]
+Description=Retry the Anki VN sorter hourly until it succeeds for the day
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=1h
+Persistent=true
+Unit=anki-vn-sorter.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,27 @@
+{
+  "modelNames": [
+    "Kiku"
+  ],
+  "scopeQuery": "note:Kiku is:new -is:suspended",
+  "matureQuery": "",
+  "matureDays": 21,
+  "httpPort": 8767,
+  "strategy": "easy_first_tiered_v1",
+  "autoSortMode": "after_sync",
+  "jitenDiscoveryUrl": "https://jiten.moe/other",
+  "jitenVnCsvUrl": "",
+  "jitenCacheTtlHours": 24,
+  "jitenRequestTimeoutSeconds": 20,
+  "expressionField": "Expression",
+  "readingField": "ExpressionReading",
+  "freqSortField": "FreqSort",
+  "tierOrder": [
+    "kana_only",
+    "all_kanji_known",
+    "one_unknown_kanji",
+    "two_unknown_kanji",
+    "three_plus_unknown_kanji"
+  ],
+  "preferShorterExpressions": true,
+  "freqSortWeight": 0.7
+}
