@@ -2,4 +2,5 @@ __pycache__/
 *.pyc
 dist/
 addon/anki_vn_sorter/user_files/
+addon/anki_vn_sorter/meta.json
 .codex

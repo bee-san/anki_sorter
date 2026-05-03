@@ -142,6 +142,10 @@ def run_sort_on_collection(
         tier_order=config.tier_order,
         prefer_shorter_expressions=config.prefer_shorter_expressions,
         freqsort_weight=config.freqsort_weight,
+        kana_only_multiplier=config.kana_only_multiplier,
+        unknown_kanji_penalty_step=config.unknown_kanji_penalty_step,
+        unknown_kanji_penalty_cap=config.unknown_kanji_penalty_cap,
+        partial_known_coverage_bonus=config.partial_known_coverage_bonus,
     )
     sorted_card_ids = [scored.card.card_id for scored in scored_cards]
     current_order = [
@@ -174,6 +178,9 @@ def run_sort_on_collection(
                 "frequencyScore": round(scored.frequency_score, 4),
                 "priorityTier": scored.priority_tier,
                 "priorityLabel": scored.priority_label,
+                "readabilityMultiplier": round(scored.readability_multiplier, 4),
+                "coverageBonus": round(scored.coverage_bonus, 4),
+                "unknownPenalty": round(scored.unknown_penalty, 4),
                 "unknownKanjiCount": scored.card.unknown_kanji_count,
                 "rankSource": scored.card.rank_source,
                 "rank": scored.card.raw_rank,
@@ -246,17 +253,17 @@ def _deck_option_warnings(col: Any, card_ids: list[int]) -> list[str]:
         new_sort_order = config_dict.get("newSortOrder")
         new_gather_priority = config_dict.get("newGatherPriority")
 
-        if new_insert_order == 0:
+        if new_insert_order == 1:
             warnings.append(
                 f'Deck "{deck_name}" uses random new-card insertion order; sequential insertion order is safer for manual repositioning.'
             )
         if new_sort_order not in (None, 1):
             warnings.append(
-                f'Deck "{deck_name}" does not preserve gather order for new cards; set New Card Sort Order to "No Sort" for best results.'
+                f'Deck "{deck_name}" does not preserve gathered order for new cards; set New Card Sort Order to "Order Gathered" for best results.'
             )
-        if new_gather_priority not in (None, 0, 1):
+        if new_gather_priority not in (None, 1):
             warnings.append(
-                f'Deck "{deck_name}" uses a non-positional new-card gather mode; avoid random/highest-position gather modes if you want the sorter order to be honored.'
+                f'Deck "{deck_name}" does not gather new cards by lowest position first; set New Card Gather Order to "Lowest Position" if you want the sorter order to be honored.'
             )
 
     return warnings

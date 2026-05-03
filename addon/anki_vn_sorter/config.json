@@ -6,9 +6,10 @@
   "matureQuery": "",
   "matureDays": 21,
   "httpPort": 8767,
-  "strategy": "easy_first_tiered_v1",
+  "strategy": "frequency_first_soft_v1",
   "autoSortMode": "after_sync",
   "jitenDiscoveryUrl": "https://jiten.moe/other",
+  "jitenFrequencyListId": "global",
   "jitenVnCsvUrl": "",
   "jitenCacheTtlHours": 24,
   "jitenRequestTimeoutSeconds": 20,
@@ -16,12 +17,16 @@
   "readingField": "ExpressionReading",
   "freqSortField": "FreqSort",
   "tierOrder": [
-    "kana_only",
     "all_kanji_known",
+    "kana_only",
     "one_unknown_kanji",
     "two_unknown_kanji",
     "three_plus_unknown_kanji"
   ],
   "preferShorterExpressions": true,
-  "freqSortWeight": 0.7
+  "freqSortWeight": 0.7,
+  "kanaOnlyMultiplier": 0.92,
+  "unknownKanjiPenaltyStep": 0.18,
+  "unknownKanjiPenaltyCap": 0.54,
+  "partialKnownCoverageBonus": 0.04
 }

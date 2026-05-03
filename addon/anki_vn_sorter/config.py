@@ -3,20 +3,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from .jiten_lists import (
+    DEFAULT_JITEN_FREQUENCY_LIST_ID,
+    LEGACY_DEFAULT_VN_CSV_URL,
+    frequency_list_ids,
+)
+
 DEFAULT_MODEL_NAMES = ("Kiku",)
 DEFAULT_SCOPE_QUERY = "note:Kiku is:new -is:suspended"
 LEGACY_DEFAULT_MATURE_QUERY = "note:Kiku prop:ivl>=21 -is:suspended"
 DEFAULT_MATURE_QUERY = ""
 DEFAULT_MATURE_DAYS = 21
 DEFAULT_HTTP_PORT = 8767
+STRATEGY_FREQUENCY_FIRST_SOFT_V1 = "frequency_first_soft_v1"
 STRATEGY_EASY_FIRST_TIERED_V1 = "easy_first_tiered_v1"
 STRATEGY_BALANCED_EASE_V1 = "balanced_ease_v1"
-DEFAULT_STRATEGY = STRATEGY_EASY_FIRST_TIERED_V1
+DEFAULT_STRATEGY = STRATEGY_FREQUENCY_FIRST_SOFT_V1
 AUTO_SORT_MODE_MANUAL_ONLY = "manual_only"
 AUTO_SORT_MODE_AFTER_SYNC = "after_sync"
 AUTO_SORT_MODE_PROFILE_OPEN = "profile_open"
 DEFAULT_AUTO_SORT_MODE = AUTO_SORT_MODE_AFTER_SYNC
 DEFAULT_JITEN_DISCOVERY_URL = "https://jiten.moe/other"
+DEFAULT_JITEN_FREQUENCY_LIST = DEFAULT_JITEN_FREQUENCY_LIST_ID
 DEFAULT_JITEN_VN_CSV_URL = ""
 DEFAULT_JITEN_CACHE_TTL_HOURS = 24
 DEFAULT_JITEN_REQUEST_TIMEOUT_SECONDS = 20
@@ -28,9 +36,16 @@ TIER_ALL_KANJI_KNOWN = "all_kanji_known"
 TIER_ONE_UNKNOWN_KANJI = "one_unknown_kanji"
 TIER_TWO_UNKNOWN_KANJI = "two_unknown_kanji"
 TIER_THREE_PLUS_UNKNOWN_KANJI = "three_plus_unknown_kanji"
-DEFAULT_TIER_ORDER = (
+LEGACY_DEFAULT_TIER_ORDER = (
     TIER_KANA_ONLY,
     TIER_ALL_KANJI_KNOWN,
+    TIER_ONE_UNKNOWN_KANJI,
+    TIER_TWO_UNKNOWN_KANJI,
+    TIER_THREE_PLUS_UNKNOWN_KANJI,
+)
+DEFAULT_TIER_ORDER = (
+    TIER_ALL_KANJI_KNOWN,
+    TIER_KANA_ONLY,
     TIER_ONE_UNKNOWN_KANJI,
     TIER_TWO_UNKNOWN_KANJI,
     TIER_THREE_PLUS_UNKNOWN_KANJI,
@@ -38,7 +53,12 @@ DEFAULT_TIER_ORDER = (
 VALID_TIER_LABELS = set(DEFAULT_TIER_ORDER)
 DEFAULT_PREFER_SHORTER_EXPRESSIONS = True
 DEFAULT_FREQSORT_WEIGHT = 0.7
+DEFAULT_KANA_ONLY_MULTIPLIER = 0.92
+DEFAULT_UNKNOWN_KANJI_PENALTY_STEP = 0.18
+DEFAULT_UNKNOWN_KANJI_PENALTY_CAP = 0.54
+DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS = 0.04
 VALID_STRATEGIES = {
+    STRATEGY_FREQUENCY_FIRST_SOFT_V1,
     STRATEGY_EASY_FIRST_TIERED_V1,
     STRATEGY_BALANCED_EASE_V1,
 }
@@ -65,6 +85,7 @@ class AddonConfig:
     strategy: str = DEFAULT_STRATEGY
     auto_sort_mode: str = DEFAULT_AUTO_SORT_MODE
     jiten_discovery_url: str = DEFAULT_JITEN_DISCOVERY_URL
+    jiten_frequency_list_id: str = DEFAULT_JITEN_FREQUENCY_LIST
     jiten_vn_csv_url: str = DEFAULT_JITEN_VN_CSV_URL
     jiten_cache_ttl_hours: int = DEFAULT_JITEN_CACHE_TTL_HOURS
     jiten_request_timeout_seconds: int = DEFAULT_JITEN_REQUEST_TIMEOUT_SECONDS
@@ -74,6 +95,10 @@ class AddonConfig:
     tier_order: tuple[str, ...] = DEFAULT_TIER_ORDER
     prefer_shorter_expressions: bool = DEFAULT_PREFER_SHORTER_EXPRESSIONS
     freqsort_weight: float = DEFAULT_FREQSORT_WEIGHT
+    kana_only_multiplier: float = DEFAULT_KANA_ONLY_MULTIPLIER
+    unknown_kanji_penalty_step: float = DEFAULT_UNKNOWN_KANJI_PENALTY_STEP
+    unknown_kanji_penalty_cap: float = DEFAULT_UNKNOWN_KANJI_PENALTY_CAP
+    partial_known_coverage_bonus: float = DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +110,7 @@ class AddonConfig:
             "strategy": self.strategy,
             "autoSortMode": self.auto_sort_mode,
             "jitenDiscoveryUrl": self.jiten_discovery_url,
+            "jitenFrequencyListId": self.jiten_frequency_list_id,
             "jitenVnCsvUrl": self.jiten_vn_csv_url,
             "jitenCacheTtlHours": self.jiten_cache_ttl_hours,
             "jitenRequestTimeoutSeconds": self.jiten_request_timeout_seconds,
@@ -94,6 +120,10 @@ class AddonConfig:
             "tierOrder": list(self.tier_order),
             "preferShorterExpressions": self.prefer_shorter_expressions,
             "freqSortWeight": self.freqsort_weight,
+            "kanaOnlyMultiplier": self.kana_only_multiplier,
+            "unknownKanjiPenaltyStep": self.unknown_kanji_penalty_step,
+            "unknownKanjiPenaltyCap": self.unknown_kanji_penalty_cap,
+            "partialKnownCoverageBonus": self.partial_known_coverage_bonus,
         }
 
     @property
@@ -127,14 +157,15 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
     model_names = _coerce_model_names(raw.get("modelNames"), errors)
     scope_query = _clean_string(raw.get("scopeQuery"), DEFAULT_SCOPE_QUERY)
     mature_query = _coerce_mature_query(raw.get("matureQuery"), model_names)
-    strategy = _clean_string(raw.get("strategy"), DEFAULT_STRATEGY)
+    strategy = _coerce_strategy(raw)
     auto_sort_mode = _clean_string(raw.get("autoSortMode"), DEFAULT_AUTO_SORT_MODE)
     jiten_discovery_url = _clean_string(
         raw.get("jitenDiscoveryUrl"), DEFAULT_JITEN_DISCOVERY_URL
     )
-    jiten_vn_csv_url = _clean_string(
-        raw.get("jitenVnCsvUrl"), DEFAULT_JITEN_VN_CSV_URL
+    jiten_frequency_list_id = _coerce_jiten_frequency_list_id(
+        raw.get("jitenFrequencyListId")
     )
+    jiten_vn_csv_url = _coerce_jiten_vn_csv_url(raw.get("jitenVnCsvUrl"))
     expression_field = _clean_string(
         raw.get("expressionField"), DEFAULT_EXPRESSION_FIELD
     )
@@ -174,6 +205,38 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         maximum=1.0,
         errors=errors,
     )
+    kana_only_multiplier = _coerce_float_in_range(
+        raw.get("kanaOnlyMultiplier"),
+        DEFAULT_KANA_ONLY_MULTIPLIER,
+        "kanaOnlyMultiplier",
+        minimum=0.0,
+        maximum=1.0,
+        errors=errors,
+    )
+    unknown_kanji_penalty_step = _coerce_float_in_range(
+        raw.get("unknownKanjiPenaltyStep"),
+        DEFAULT_UNKNOWN_KANJI_PENALTY_STEP,
+        "unknownKanjiPenaltyStep",
+        minimum=0.0,
+        maximum=1.0,
+        errors=errors,
+    )
+    unknown_kanji_penalty_cap = _coerce_float_in_range(
+        raw.get("unknownKanjiPenaltyCap"),
+        DEFAULT_UNKNOWN_KANJI_PENALTY_CAP,
+        "unknownKanjiPenaltyCap",
+        minimum=0.0,
+        maximum=1.0,
+        errors=errors,
+    )
+    partial_known_coverage_bonus = _coerce_float_in_range(
+        raw.get("partialKnownCoverageBonus"),
+        DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS,
+        "partialKnownCoverageBonus",
+        minimum=0.0,
+        maximum=1.0,
+        errors=errors,
+    )
 
     if http_port > 65535:
         errors.append("httpPort must be between 1 and 65535.")
@@ -208,6 +271,7 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         strategy=strategy,
         auto_sort_mode=auto_sort_mode,
         jiten_discovery_url=jiten_discovery_url,
+        jiten_frequency_list_id=jiten_frequency_list_id,
         jiten_vn_csv_url=jiten_vn_csv_url,
         jiten_cache_ttl_hours=cache_ttl_hours,
         jiten_request_timeout_seconds=request_timeout_seconds,
@@ -217,6 +281,10 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         tier_order=tier_order,
         prefer_shorter_expressions=prefer_shorter_expressions,
         freqsort_weight=freqsort_weight,
+        kana_only_multiplier=kana_only_multiplier,
+        unknown_kanji_penalty_step=unknown_kanji_penalty_step,
+        unknown_kanji_penalty_cap=unknown_kanji_penalty_cap,
+        partial_known_coverage_bonus=partial_known_coverage_bonus,
     )
 
 
@@ -283,6 +351,66 @@ def _coerce_tier_order(value: Any, errors: list[str]) -> tuple[str, ...]:
         return DEFAULT_TIER_ORDER
 
     return tuple(cleaned_labels)
+
+
+def _coerce_strategy(raw: Mapping[str, Any]) -> str:
+    cleaned = _clean_string(raw.get("strategy"), DEFAULT_STRATEGY)
+    if cleaned == STRATEGY_EASY_FIRST_TIERED_V1 and _should_migrate_default_tiered_strategy(raw):
+        return DEFAULT_STRATEGY
+    return cleaned
+
+
+def _should_migrate_default_tiered_strategy(raw: Mapping[str, Any]) -> bool:
+    tier_errors: list[str] = []
+    tier_order = _coerce_tier_order(raw.get("tierOrder"), tier_errors)
+    if tier_errors or tier_order != DEFAULT_TIER_ORDER:
+        return False
+
+    prefer_errors: list[str] = []
+    prefer_shorter_expressions = _coerce_bool(
+        raw.get("preferShorterExpressions"),
+        DEFAULT_PREFER_SHORTER_EXPRESSIONS,
+        "preferShorterExpressions",
+        prefer_errors,
+    )
+    if prefer_errors or prefer_shorter_expressions != DEFAULT_PREFER_SHORTER_EXPRESSIONS:
+        return False
+
+    freqsort_errors: list[str] = []
+    freqsort_weight = _coerce_float_in_range(
+        raw.get("freqSortWeight"),
+        DEFAULT_FREQSORT_WEIGHT,
+        "freqSortWeight",
+        minimum=0.0,
+        maximum=1.0,
+        errors=freqsort_errors,
+    )
+    if freqsort_errors or freqsort_weight != DEFAULT_FREQSORT_WEIGHT:
+        return False
+
+    return not any(
+        key in raw
+        for key in (
+            "kanaOnlyMultiplier",
+            "unknownKanjiPenaltyStep",
+            "unknownKanjiPenaltyCap",
+            "partialKnownCoverageBonus",
+        )
+    )
+
+
+def _coerce_jiten_frequency_list_id(value: Any) -> str:
+    cleaned = _clean_string(value, DEFAULT_JITEN_FREQUENCY_LIST)
+    if cleaned in frequency_list_ids():
+        return cleaned
+    return DEFAULT_JITEN_FREQUENCY_LIST
+
+
+def _coerce_jiten_vn_csv_url(value: Any) -> str:
+    cleaned = _clean_string(value, DEFAULT_JITEN_VN_CSV_URL)
+    if cleaned == LEGACY_DEFAULT_VN_CSV_URL:
+        return ""
+    return cleaned
 
 
 def _clean_string(value: Any, default: str = "") -> str:

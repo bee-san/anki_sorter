@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import re
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,8 +13,9 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 from .config import AddonConfig
+from .jiten_lists import get_frequency_list_definition
 from .normalization import normalize_lookup_text
-from .state import ensure_user_files_dir
+from .state import addon_dir, ensure_user_files_dir
 
 CSV_HREF_RE = re.compile(r'href="([^"]+csv[^"]*)"', re.IGNORECASE)
 QUOTED_CSV_RE = re.compile(r'["\']([^"\']+csv[^"\']*)["\']', re.IGNORECASE)
@@ -43,6 +45,7 @@ class FrequencyLookup:
     ranks: dict[str, float]
     source_url: str | None
     warnings: tuple[str, ...]
+    source_kind: str = "none"
 
     def rank_for(self, expression: str) -> float | None:
         key = normalize_lookup_text(expression)
@@ -58,80 +61,85 @@ class FrequencyParseError(ValueError):
 def load_frequency_lookup(
     config: AddonConfig,
     opener: Callable[[str, int], str] | None = None,
+    *,
+    force_refresh: bool = False,
 ) -> FrequencyLookup:
     opener = opener or _default_fetch_text
+    frequency_list = get_frequency_list_definition(config.jiten_frequency_list_id)
     user_dir = ensure_user_files_dir()
-    cache_path = user_dir / "jiten_vn_frequency.csv"
-    meta_path = user_dir / "jiten_vn_frequency_meta.json"
+    cache_path = _cache_path(user_dir, frequency_list.id)
+    meta_path = _meta_path(user_dir, frequency_list.id)
+    _migrate_legacy_visual_novel_cache(user_dir, frequency_list.id, cache_path, meta_path)
     warnings: list[str] = []
 
     meta = _read_json(meta_path)
     cache_is_fresh = _is_fresh(cache_path, config.jiten_cache_ttl_hours)
     skip_cache_fallback = False
 
-    if cache_is_fresh:
+    if cache_is_fresh and not force_refresh:
         try:
             return FrequencyLookup(
                 ranks=parse_frequency_csv(cache_path.read_text(encoding="utf-8")),
                 source_url=_meta_source_url(meta),
                 warnings=tuple(),
+                source_kind="cache",
             )
         except (OSError, UnicodeDecodeError, FrequencyParseError) as error:
             warnings.append(f"Ignoring an invalid cached Jiten frequency list: {error}")
             skip_cache_fallback = True
 
-    csv_url = config.jiten_vn_csv_url.strip() or _meta_source_url(meta)
-    if not csv_url:
-        try:
-            page_text = opener(
-                config.jiten_discovery_url,
-                config.jiten_request_timeout_seconds,
-            )
-            csv_url = discover_visual_novel_csv_url(
-                page_text, config.jiten_discovery_url
-            )
-            if csv_url:
-                warnings.append(
-                    "Discovered the Visual Novel CSV URL from the Jiten tools page."
-                )
-        except Exception as error:  # pragma: no cover - best effort network path
-            warnings.append(f"Could not fetch the Jiten tools page: {error}")
-
-    if csv_url:
-        try:
-            csv_text = opener(csv_url, config.jiten_request_timeout_seconds)
-            parsed_ranks = parse_frequency_csv(csv_text)
-            cache_path.write_text(csv_text, encoding="utf-8")
-            _write_json(
-                meta_path,
-                {
-                    "sourceUrl": csv_url,
-                    "fetchedAt": time.time(),
-                },
-            )
-            return FrequencyLookup(
-                ranks=parsed_ranks,
-                source_url=csv_url,
-                warnings=tuple(warnings),
-            )
-        except Exception as error:  # pragma: no cover - best effort network path
-            warnings.append(f"Could not refresh the Jiten Visual Novel CSV: {error}")
+    lookup = _refresh_from_remote_sources(
+        config,
+        frequency_list.label,
+        warnings,
+        meta_path,
+        cache_path,
+        meta,
+        opener,
+    )
+    if lookup is not None:
+        return lookup
 
     if cache_path.exists() and not skip_cache_fallback:
         try:
-            warnings.append("Using a stale cached Jiten Visual Novel CSV.")
+            if cache_is_fresh:
+                warnings.append(
+                    f"Using the cached Jiten {frequency_list.label} CSV."
+                )
+            else:
+                warnings.append(
+                    f"Using a stale cached Jiten {frequency_list.label} CSV."
+                )
             return FrequencyLookup(
                 ranks=parse_frequency_csv(cache_path.read_text(encoding="utf-8")),
                 source_url=_meta_source_url(meta),
                 warnings=tuple(warnings),
+                source_kind="cache",
             )
         except (OSError, UnicodeDecodeError, FrequencyParseError) as error:
             warnings.append(f"Could not read stale Jiten cache: {error}")
 
+    bundled_lookup = _load_bundled_snapshot(frequency_list.id, frequency_list.label, warnings)
+    if bundled_lookup is not None:
+        return bundled_lookup
+
     warnings.append(
-        "Jiten Visual Novel CSV is unavailable; falling back to Kiku FreqSort only."
+        f"Jiten {frequency_list.label} CSV is unavailable; "
+        "falling back to Kiku FreqSort only."
     )
-    return FrequencyLookup(ranks={}, source_url=None, warnings=tuple(warnings))
+    return FrequencyLookup(
+        ranks={},
+        source_url=None,
+        warnings=tuple(warnings),
+        source_kind="none",
+    )
+
+
+def refresh_frequency_lookup(
+    config: AddonConfig,
+    opener: Callable[[str, int], str] | None = None,
+) -> FrequencyLookup:
+    return load_frequency_lookup(config, opener=opener, force_refresh=True)
 
 
 def discover_visual_novel_csv_url(page_text: str, base_url: str) -> str | None:
@@ -152,6 +160,13 @@ def discover_visual_novel_csv_url(page_text: str, base_url: str) -> str | None:
             return urljoin(base_url, candidate)
 
     return None
+
+
+def bundled_frequency_path(list_id: str) -> Path | None:
+    frequency_list = get_frequency_list_definition(list_id)
+    if not frequency_list.bundled_snapshot_name:
+        return None
+    return addon_dir() / "data" / frequency_list.bundled_snapshot_name
 
 
 def parse_frequency_csv(csv_text: str) -> dict[str, float]:
@@ -217,6 +232,109 @@ def _default_fetch_text(url: str, timeout_seconds: int) -> str:
         return response.read().decode("utf-8")
 
 
+def _refresh_from_remote_sources(
+    config: AddonConfig,
+    frequency_list_label: str,
+    warnings: list[str],
+    meta_path: Path,
+    cache_path: Path,
+    meta: dict[str, object] | None,
+    opener: Callable[[str, int], str],
+) -> FrequencyLookup | None:
+    urls = _configured_csv_urls(config, meta)
+    attempted_urls: set[str] = set()
+
+    for csv_url in urls:
+        attempted_urls.add(csv_url)
+        lookup = _fetch_remote_lookup(
+            csv_url,
+            config,
+            frequency_list_label,
+            warnings,
+            meta_path,
+            cache_path,
+            opener,
+        )
+        if lookup is not None:
+            return lookup
+
+    return None
+
+
+def _configured_csv_urls(
+    config: AddonConfig,
+    meta: dict[str, object] | None,
+) -> list[str]:
+    urls: list[str] = []
+    selected_list = get_frequency_list_definition(config.jiten_frequency_list_id)
+    for candidate in (
+        config.jiten_vn_csv_url,
+        selected_list.csv_url,
+        _meta_source_url(meta),
+    ):
+        cleaned = candidate.strip() if isinstance(candidate, str) else ""
+        if cleaned and cleaned not in urls:
+            urls.append(cleaned)
+    return urls
+
+
+def _fetch_remote_lookup(
+    csv_url: str,
+    config: AddonConfig,
+    frequency_list_label: str,
+    warnings: list[str],
+    meta_path: Path,
+    cache_path: Path,
+    opener: Callable[[str, int], str],
+) -> FrequencyLookup | None:
+    try:
+        csv_text = opener(csv_url, config.jiten_request_timeout_seconds)
+        parsed_ranks = parse_frequency_csv(csv_text)
+        cache_path.write_text(csv_text, encoding="utf-8")
+        _write_json(
+            meta_path,
+            {
+                "sourceUrl": csv_url,
+                "fetchedAt": time.time(),
+            },
+        )
+        return FrequencyLookup(
+            ranks=parsed_ranks,
+            source_url=csv_url,
+            warnings=tuple(warnings),
+            source_kind="remote",
+        )
+    except Exception as error:  # pragma: no cover - best effort network path
+        warnings.append(
+            f"Could not refresh the Jiten {frequency_list_label} CSV "
+            f"from {csv_url}: {error}"
+        )
+        return None
+
+
+def _load_bundled_snapshot(
+    list_id: str,
+    frequency_list_label: str,
+    warnings: list[str],
+) -> FrequencyLookup | None:
+    snapshot_path = bundled_frequency_path(list_id)
+    if snapshot_path is None or not snapshot_path.exists():
+        return None
+    try:
+        warnings.append(
+            f"Using the bundled Jiten {frequency_list_label} CSV snapshot."
+        )
+        return FrequencyLookup(
+            ranks=parse_frequency_csv(snapshot_path.read_text(encoding="utf-8")),
+            source_url=f"bundled://{snapshot_path.name}",
+            warnings=tuple(warnings),
+            source_kind="bundled",
+        )
+    except (OSError, UnicodeDecodeError, FrequencyParseError) as error:
+        warnings.append(f"Could not read the bundled Jiten snapshot: {error}")
+        return None
+
+
 def _normalize_header(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
 
@@ -263,6 +381,39 @@ def _is_fresh(path: Path, ttl_hours: int) -> bool:
     max_age_seconds = ttl_hours * 3600
     age = time.time() - path.stat().st_mtime
     return age <= max_age_seconds
+
+
+def _cache_path(user_dir: Path, list_id: str) -> Path:
+    return user_dir / f"jiten_frequency_{list_id}.csv"
+
+
+def _meta_path(user_dir: Path, list_id: str) -> Path:
+    return user_dir / f"jiten_frequency_{list_id}_meta.json"
+
+
+def _migrate_legacy_visual_novel_cache(
+    user_dir: Path,
+    list_id: str,
+    cache_path: Path,
+    meta_path: Path,
+) -> None:
+    if list_id != "visual_novel":
+        return
+
+    legacy_cache_path = user_dir / "jiten_vn_frequency.csv"
+    legacy_meta_path = user_dir / "jiten_vn_frequency_meta.json"
+
+    if not cache_path.exists() and legacy_cache_path.exists():
+        try:
+            shutil.copy2(legacy_cache_path, cache_path)
+        except OSError:
+            pass
+
+    if not meta_path.exists() and legacy_meta_path.exists():
+        try:
+            shutil.copy2(legacy_meta_path, meta_path)
+        except OSError:
+            pass
 
 
 def _meta_source_url(meta: dict[str, object] | None) -> str | None:

@@ -7,28 +7,128 @@ It is designed for a Japanese visual novel workflow:
 - only new cards are reordered
 - review and learning cards are untouched
 - Kiku cards are prioritized by how easy they should be to read now
-- VN frequency is used as a tie-breaker, not the main decision rule
+- Jiten frequency is the main decision signal, with soft readability penalties
 - by default, automatic sorting happens after desktop sync
+- the add-on defaults to Jiten `Global` and can switch to other Jiten lists
+- the add-on auto-refreshes the selected Jiten list from Jiten's export API
+- a bundled Jiten `Global` snapshot is included for offline fallback
 - a local HTTP endpoint still exists for manual or timer-based runs
 
 ## What It Does
 
-By default, the add-on sorts eligible new cards into these tiers:
+By default, the add-on uses a blended score:
 
-1. kana-only cards
-2. cards whose kanji are all already known
-3. cards with 1 unknown kanji
-4. cards with 2 unknown kanji
-5. cards with 3 or more unknown kanji
+- better Jiten frequency rank from the selected list is the main signal
+- `all_kanji_known` cards get no penalty
+- `kana_only` cards get a mild penalty, so they still rise when they are much more common
+- cards with unknown kanji get a stronger penalty, but super common ones can still appear early
+- partially-known unknown-kanji cards get a small bonus
 
-Within a tier, the add-on prefers:
+This is intentionally not a general “difficulty score.” It is a practical
+Pareto-style new-card prioritizer.
 
-- better Jiten Visual Novel frequency rank
-- then Kiku `FreqSort` as fallback
-- then shorter expressions
-- then stable card order tie-breakers
+## Algorithm Summary
 
-This is intentionally not a general “difficulty score.” It is a practical new-card prioritizer.
+The default strategy is `frequency_first_soft_v1`.
+
+In plain terms, the add-on tries to show:
+
+1. words that are very common in the selected Jiten list
+2. words that should be readable with what you already know
+3. some high-value kana-only and unknown-kanji words early, but not enough to make the queue painful
+
+The score works like this:
+
+- start with an absolute frequency score from the selected Jiten list
+- keep `all_kanji_known` words at full value
+- apply a small penalty to `kana_only` words, so they mix in without taking over
+- apply a larger penalty as unknown kanji increases
+- give a small bonus to partially-known unknown-kanji words
+
+So the queue is not hard-bucketed. Very common easy words rise first, but
+extremely common kana-only or partially-known words can still break in early.
+
+## Algorithm
+
+The default strategy is `frequency_first_soft_v1`.
+
+At a high level, the add-on does this:
+
+1. Find eligible cards with `scopeQuery`.
+2. Keep only `is:new` cards from supported note types.
+3. Build a known-kanji set from mature Kiku cards.
+4. Load the selected Jiten frequency list.
+5. Compute a blended score for each new card.
+6. Sort by that score and stable tie-breakers.
+7. Reposition only the matching new cards in Anki.
+
+More concretely:
+
+1. Candidate selection:
+   The default query is `note:Kiku is:new -is:suspended`.
+   Review and learning cards are ignored.
+
+2. Known-kanji extraction:
+   The add-on searches mature cards using `matureQuery` or the generated
+   `matureDays` query.
+   It reads the `Expression` field from those mature Kiku notes and extracts
+   kanji characters.
+   If a kanji appears there, it counts as known.
+
+3. Frequency source selection:
+   The active list comes from `jitenFrequencyListId`.
+   The default is `global`.
+   The add-on tries to use:
+   - the fresh cache for the selected list
+   - the live Jiten export API for the selected list
+   - the stale cache for the selected list
+   - the bundled `Global` snapshot when the selected list is `global`
+   - Kiku `FreqSort` only if no Jiten data is available
+
+4. Per-card features:
+   For each candidate card, the add-on reads:
+   - `Expression`
+   - extracted kanji count
+   - known kanji count
+   - Jiten rank from the selected list
+   - Kiku `FreqSort` rank as fallback
+
+5. Blended scoring:
+   The default score is:
+   - absolute frequency score from Jiten, or `FreqSort` as fallback
+   - multiplied by a readability adjustment:
+     - `all_kanji_known`: `1.00`
+     - `kana_only`: `0.92`
+     - unknown kanji: `1 - min(0.18 * unknown_kanji_count, 0.54)`
+   - plus a small partial-known bonus:
+     - `0.04 * coverage_score` for cards that still have unknown kanji
+
+   This means:
+   - similar-frequency known-kanji cards usually beat kana-only cards
+   - super common kana-only cards can still rise early
+   - super common one-unknown-kanji cards can outrank weaker easy cards
+   - harder unknown-kanji cards still sink unless their frequency is very strong
+
+6. Final ordering:
+   Cards are sorted by:
+   - higher blended score
+   - then better raw rank
+   - then shorter expression length when `preferShorterExpressions = true`
+   - then current due
+   - then card template order
+   - then card id
+
+   The older `easy_first_tiered_v1` mode still exists if you want strict buckets.
+
+7. Repositioning:
+   The add-on calls Anki’s internal new-card reposition API.
+   It starts from the minimum due among the eligible cards and only reorders the
+   matching new cards.
+   Non-matching cards are left alone as much as possible.
+
+There are also optional strategies, `easy_first_tiered_v1` and
+`balanced_ease_v1`, but the default and recommended path is
+`frequency_first_soft_v1`.
 
 ## Scope
 
@@ -134,6 +234,8 @@ If you installed by symlink:
 3. Optional: run it once manually from Anki:
 
 - `Tools -> Anki VN Sorter -> Sort Kiku VN Cards Now`
+- `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
+- `Tools -> Anki VN Sorter -> Refresh Current Jiten Frequency List Now`
 
 4. Automatic mode is enabled by default through the add-on setting:
 
@@ -239,6 +341,11 @@ Important keys:
 - `tierOrder`
 - `preferShorterExpressions`
 - `freqSortWeight`
+- `kanaOnlyMultiplier`
+- `unknownKanjiPenaltyStep`
+- `unknownKanjiPenaltyCap`
+- `partialKnownCoverageBonus`
+- `jitenFrequencyListId`
 - `jitenDiscoveryUrl`
 - `jitenVnCsvUrl`
 - `jitenCacheTtlHours`
@@ -249,13 +356,14 @@ Important keys:
 
 Current strategies:
 
-- `easy_first_tiered_v1`: default, tiered by unknown kanji count
+- `frequency_first_soft_v1`: default, frequency-first with soft readability penalties
+- `easy_first_tiered_v1`: optional strict bucket mode
 - `balanced_ease_v1`: older weighted heuristic
 
 Tier labels for `tierOrder`:
 
-- `kana_only`
 - `all_kanji_known`
+- `kana_only`
 - `one_unknown_kanji`
 - `two_unknown_kanji`
 - `three_plus_unknown_kanji`
@@ -264,13 +372,26 @@ Recommended default:
 
 ```json
 {
-  "strategy": "easy_first_tiered_v1",
+  "strategy": "frequency_first_soft_v1",
+  "kanaOnlyMultiplier": 0.92,
+  "unknownKanjiPenaltyStep": 0.18,
+  "unknownKanjiPenaltyCap": 0.54,
+  "partialKnownCoverageBonus": 0.04,
   "autoSortMode": "after_sync"
 }
 ```
 
-If Jiten discovery fails on your machine, set `jitenVnCsvUrl` explicitly.
 Leave `matureQuery` as `""` if you want `matureDays` to control what counts as mature.
+
+Jiten behavior:
+
+- by default, `jitenFrequencyListId` is `global`
+- switch lists from `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
+- `Global` and `Kanji` are listed first; media-specific lists are marked as such
+- `jitenVnCsvUrl` is only an optional manual override now
+- the add-on refreshes the selected list cache when it becomes stale
+- if the live download fails, it falls back to the cache for that list
+- if the selected list has no usable cache and is `global`, it falls back to the bundled snapshot
 
 ## Endpoints
 
@@ -352,7 +473,8 @@ If sorting does nothing:
 
 If frequency ranking is missing:
 
-- set `jitenVnCsvUrl` directly
+- run `Tools -> Anki VN Sorter -> Refresh Current Jiten Frequency List Now`
+- if you use a custom mirror, set `jitenVnCsvUrl` directly
 - check whether the Jiten cache could be refreshed
 
 If the order shown in study still looks wrong:
