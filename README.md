@@ -290,7 +290,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now anki-vn-sorter.timer
 ```
 
-The timer works by calling:
+The timer works by calling [scripts/request_sort.py](/home/bee/Documents/src/github/anki_sorter/scripts/request_sort.py), which checks the add-on health endpoint and then calls:
 
 - `POST http://127.0.0.1:8767/sort`
 
@@ -298,6 +298,7 @@ Important behavior:
 
 - it only works while Anki is running and the profile is open
 - the add-on enforces once-per-day sorting per Anki profile
+- the requester exits cleanly when Anki is not reachable
 - the timer retries hourly until Anki is available
 - it may run before you sync desktop, so prefer `autoSortMode = "after_sync"` for multi-device use
 
