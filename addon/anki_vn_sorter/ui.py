@@ -7,7 +7,13 @@ from aqt.operations import QueryOp
 from aqt.qt import QAction, QInputDialog, QMenu
 from aqt.utils import showWarning, tooltip
 
-from .config import ConfigValidationError, addon_module_name, load_config, load_raw_config
+from .config import (
+    ConfigValidationError,
+    addon_module_name,
+    load_config,
+    load_raw_config,
+    parse_config,
+)
 from .jiten import FrequencyLookup, refresh_frequency_lookup
 from .jiten_lists import dropdown_options, get_frequency_list_definition
 from .server import _profile_name
@@ -16,7 +22,9 @@ from .sorter import run_sort_on_collection
 TOOLS_MENU_TITLE = "Anki VN Sorter"
 RUN_ACTION_LABEL = "Sort Kiku VN Cards Now"
 CHOOSE_FREQUENCY_LIST_ACTION_LABEL = "Choose Jiten Frequency List..."
-REFRESH_JITEN_ACTION_LABEL = "Refresh Current Jiten Frequency List Now"
+SET_YOMITAN_FREQUENCY_URL_ACTION_LABEL = "Set Yomitan Frequency Dictionary URL..."
+CLEAR_YOMITAN_FREQUENCY_URL_ACTION_LABEL = "Clear Yomitan Frequency Dictionary URL"
+REFRESH_FREQUENCY_SOURCE_ACTION_LABEL = "Refresh Current Frequency Source Now"
 TOOLS_MENU_ATTR = "_anki_vn_sorter_menu"
 
 
@@ -39,8 +47,18 @@ def register_tools_menu() -> None:
     choose_frequency_list_action = QAction(CHOOSE_FREQUENCY_LIST_ACTION_LABEL, menu)
     choose_frequency_list_action.triggered.connect(choose_jiten_frequency_list)
     menu.addAction(choose_frequency_list_action)
-    refresh_action = QAction(REFRESH_JITEN_ACTION_LABEL, menu)
-    refresh_action.triggered.connect(refresh_jiten_now)
+    set_yomitan_frequency_url_action = QAction(
+        SET_YOMITAN_FREQUENCY_URL_ACTION_LABEL, menu
+    )
+    set_yomitan_frequency_url_action.triggered.connect(set_yomitan_frequency_url)
+    menu.addAction(set_yomitan_frequency_url_action)
+    clear_yomitan_frequency_url_action = QAction(
+        CLEAR_YOMITAN_FREQUENCY_URL_ACTION_LABEL, menu
+    )
+    clear_yomitan_frequency_url_action.triggered.connect(clear_yomitan_frequency_url)
+    menu.addAction(clear_yomitan_frequency_url_action)
+    refresh_action = QAction(REFRESH_FREQUENCY_SOURCE_ACTION_LABEL, menu)
+    refresh_action.triggered.connect(refresh_current_frequency_source_now)
     menu.addAction(refresh_action)
     tools_menu.addMenu(menu)
     setattr(mw, TOOLS_MENU_ATTR, menu)
@@ -70,7 +88,7 @@ def run_sort_now() -> None:
     ).run_in_background()
 
 
-def refresh_jiten_now() -> None:
+def refresh_current_frequency_source_now() -> None:
     try:
         config = load_config()
     except ConfigValidationError as error:
@@ -84,11 +102,72 @@ def refresh_jiten_now() -> None:
         parent=mw,
         op=lambda col: refresh_frequency_lookup(config),
         success=_on_refresh_success,
-    ).with_progress(
-        f"Refreshing the Jiten {get_frequency_list_definition(config.jiten_frequency_list_id).label} frequency list..."
-    ).failure(
+    ).with_progress(_refresh_progress_message(config)).failure(
         _on_refresh_failure
     ).run_in_background()
+
+
+def refresh_jiten_now() -> None:
+    refresh_current_frequency_source_now()
+
+
+def set_yomitan_frequency_url() -> None:
+    try:
+        config = load_config()
+    except ConfigValidationError as error:
+        showWarning(
+            "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
+            parent=mw,
+        )
+        return
+
+    entered_url, accepted = QInputDialog.getText(
+        mw,
+        "Yomitan Frequency Dictionary URL",
+        "Paste a Yomitan frequency dictionary index URL.",
+        text=config.yomitan_frequency_index_url,
+    )
+    if not accepted:
+        return
+
+    yomitan_url = entered_url.strip()
+    raw_config = load_raw_config()
+    raw_config["yomitanFrequencyIndexUrl"] = yomitan_url
+    try:
+        updated_config = parse_config(raw_config)
+    except ConfigValidationError as error:
+        showWarning(
+            "The Yomitan frequency dictionary URL is invalid.\n\n"
+            + "\n".join(error.messages),
+            parent=mw,
+        )
+        return
+
+    mw.addonManager.writeConfig(addon_module_name(), raw_config)
+    _refresh_updated_frequency_source(
+        updated_config,
+        success=lambda lookup: _on_yomitan_frequency_url_set(updated_config, lookup),
+    )
+
+
+def clear_yomitan_frequency_url() -> None:
+    raw_config = load_raw_config()
+    raw_config["yomitanFrequencyIndexUrl"] = ""
+    try:
+        updated_config = parse_config(raw_config)
+    except ConfigValidationError as error:
+        showWarning(
+            "Anki VN Sorter configuration is invalid after clearing the Yomitan URL.\n\n"
+            + "\n".join(error.messages),
+            parent=mw,
+        )
+        return
+
+    mw.addonManager.writeConfig(addon_module_name(), raw_config)
+    _refresh_updated_frequency_source(
+        updated_config,
+        success=lambda lookup: _on_yomitan_frequency_url_cleared(updated_config, lookup),
+    )
 
 
 def choose_jiten_frequency_list() -> None:
@@ -126,6 +205,7 @@ def choose_jiten_frequency_list() -> None:
     raw_config = load_raw_config()
     raw_config["jitenFrequencyListId"] = selected_list_id
     raw_config["jitenVnCsvUrl"] = ""
+    raw_config["yomitanFrequencyIndexUrl"] = ""
     mw.addonManager.writeConfig(addon_module_name(), raw_config)
 
     try:
@@ -147,6 +227,23 @@ def choose_jiten_frequency_list() -> None:
     ).failure(_on_refresh_failure).run_in_background()
 
 
+def _refresh_updated_frequency_source(config: Any, success: Any) -> None:
+    QueryOp(
+        parent=mw,
+        op=lambda col: refresh_frequency_lookup(config),
+        success=success,
+    ).with_progress(_refresh_progress_message(config)).failure(
+        _on_refresh_failure
+    ).run_in_background()
+
+
+def _refresh_progress_message(config: Any) -> str:
+    if config.yomitan_frequency_index_url.strip():
+        return "Refreshing the Yomitan frequency dictionary..."
+    selected_label = get_frequency_list_definition(config.jiten_frequency_list_id).label
+    return f"Refreshing the Jiten {selected_label} frequency list..."
+
+
 def _on_sort_success(summary: dict[str, Any]) -> None:
     if summary.get("skippedForToday"):
         tooltip("Anki VN Sorter already ran for this profile today.", parent=mw)
@@ -166,6 +263,12 @@ def _on_sort_failure(error: Exception) -> None:
 
 
 def _on_refresh_success(lookup: FrequencyLookup) -> None:
+    if lookup.source_kind == "yomitan":
+        tooltip(
+            f"Refreshed Yomitan frequency dictionary ({len(lookup.ranks):,} entries).",
+            parent=mw,
+        )
+        return
     if lookup.source_kind == "remote":
         tooltip(
             f"Refreshed Jiten frequency list ({len(lookup.ranks):,} entries).",
@@ -173,13 +276,17 @@ def _on_refresh_success(lookup: FrequencyLookup) -> None:
         )
         return
 
-    message = "Could not refresh the Jiten frequency list from the live source."
-    if lookup.source_kind == "cache":
-        message += "\n\nUsing the local cache instead."
-    elif lookup.source_kind == "bundled":
-        message += "\n\nUsing the bundled snapshot instead."
+    if lookup.source_kind == "yomitan_cache":
+        message = "Could not refresh the Yomitan frequency dictionary from the live source."
+        message += "\n\nUsing the local Yomitan cache instead."
     else:
-        message += "\n\nFalling back to Kiku FreqSort only."
+        message = "Could not refresh the Jiten frequency list from the live source."
+        if lookup.source_kind == "cache":
+            message += "\n\nUsing the local cache instead."
+        elif lookup.source_kind == "bundled":
+            message += "\n\nUsing the bundled snapshot instead."
+        else:
+            message += "\n\nFalling back to Kiku FreqSort only."
 
     details = "\n".join(lookup.warnings)
     if details:
@@ -188,7 +295,28 @@ def _on_refresh_success(lookup: FrequencyLookup) -> None:
 
 
 def _on_refresh_failure(error: Exception) -> None:
-    showWarning(f"Jiten refresh failed.\n\n{error}", parent=mw)
+    showWarning(f"Frequency source refresh failed.\n\n{error}", parent=mw)
+
+
+def _on_yomitan_frequency_url_set(config: Any, lookup: FrequencyLookup) -> None:
+    if lookup.source_kind == "yomitan":
+        tooltip(
+            f"Using Yomitan frequency dictionary ({len(lookup.ranks):,} entries).",
+            parent=mw,
+        )
+        return
+    _on_refresh_success(lookup)
+
+
+def _on_yomitan_frequency_url_cleared(config: Any, lookup: FrequencyLookup) -> None:
+    selected_label = get_frequency_list_definition(config.jiten_frequency_list_id).label
+    if lookup.source_kind == "remote":
+        tooltip(
+            f"Yomitan URL cleared. Using Jiten {selected_label} ({len(lookup.ranks):,} entries).",
+            parent=mw,
+        )
+        return
+    _on_frequency_list_selected(config, lookup)
 
 
 def _on_frequency_list_selected(config: Any, lookup: FrequencyLookup) -> None:

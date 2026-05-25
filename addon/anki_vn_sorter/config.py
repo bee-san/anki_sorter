@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 from .jiten_lists import (
     DEFAULT_JITEN_FREQUENCY_LIST_ID,
@@ -26,6 +27,7 @@ DEFAULT_AUTO_SORT_MODE = AUTO_SORT_MODE_AFTER_SYNC
 DEFAULT_JITEN_DISCOVERY_URL = "https://jiten.moe/other"
 DEFAULT_JITEN_FREQUENCY_LIST = DEFAULT_JITEN_FREQUENCY_LIST_ID
 DEFAULT_JITEN_VN_CSV_URL = ""
+DEFAULT_YOMITAN_FREQUENCY_INDEX_URL = ""
 DEFAULT_JITEN_CACHE_TTL_HOURS = 24
 DEFAULT_JITEN_REQUEST_TIMEOUT_SECONDS = 20
 DEFAULT_EXPRESSION_FIELD = "Expression"
@@ -87,6 +89,7 @@ class AddonConfig:
     jiten_discovery_url: str = DEFAULT_JITEN_DISCOVERY_URL
     jiten_frequency_list_id: str = DEFAULT_JITEN_FREQUENCY_LIST
     jiten_vn_csv_url: str = DEFAULT_JITEN_VN_CSV_URL
+    yomitan_frequency_index_url: str = DEFAULT_YOMITAN_FREQUENCY_INDEX_URL
     jiten_cache_ttl_hours: int = DEFAULT_JITEN_CACHE_TTL_HOURS
     jiten_request_timeout_seconds: int = DEFAULT_JITEN_REQUEST_TIMEOUT_SECONDS
     expression_field: str = DEFAULT_EXPRESSION_FIELD
@@ -112,6 +115,7 @@ class AddonConfig:
             "jitenDiscoveryUrl": self.jiten_discovery_url,
             "jitenFrequencyListId": self.jiten_frequency_list_id,
             "jitenVnCsvUrl": self.jiten_vn_csv_url,
+            "yomitanFrequencyIndexUrl": self.yomitan_frequency_index_url,
             "jitenCacheTtlHours": self.jiten_cache_ttl_hours,
             "jitenRequestTimeoutSeconds": self.jiten_request_timeout_seconds,
             "expressionField": self.expression_field,
@@ -166,6 +170,11 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         raw.get("jitenFrequencyListId")
     )
     jiten_vn_csv_url = _coerce_jiten_vn_csv_url(raw.get("jitenVnCsvUrl"))
+    yomitan_frequency_index_url = _coerce_url_string(
+        raw.get("yomitanFrequencyIndexUrl"),
+        "yomitanFrequencyIndexUrl",
+        errors,
+    )
     expression_field = _clean_string(
         raw.get("expressionField"), DEFAULT_EXPRESSION_FIELD
     )
@@ -273,6 +282,7 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         jiten_discovery_url=jiten_discovery_url,
         jiten_frequency_list_id=jiten_frequency_list_id,
         jiten_vn_csv_url=jiten_vn_csv_url,
+        yomitan_frequency_index_url=yomitan_frequency_index_url,
         jiten_cache_ttl_hours=cache_ttl_hours,
         jiten_request_timeout_seconds=request_timeout_seconds,
         expression_field=expression_field,
@@ -411,6 +421,17 @@ def _coerce_jiten_vn_csv_url(value: Any) -> str:
     if cleaned == LEGACY_DEFAULT_VN_CSV_URL:
         return ""
     return cleaned
+
+
+def _coerce_url_string(value: Any, field_name: str, errors: list[str]) -> str:
+    cleaned = _clean_string(value)
+    if not cleaned:
+        return ""
+    parsed = urlparse(cleaned)
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        return cleaned
+    errors.append(f"{field_name} must be blank or a valid http:// or https:// URL.")
+    return ""
 
 
 def _clean_string(value: Any, default: str = "") -> str:

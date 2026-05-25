@@ -92,6 +92,31 @@ class RankingTests(unittest.TestCase):
         scored = score_cards(cards, strategy=STRATEGY_BALANCED_EASE_V1)
         self.assertEqual([entry.card.card_id for entry in scored], [2, 1])
 
+    def test_balanced_strategy_treats_yomitan_as_primary_frequency_source(self) -> None:
+        cards = [
+            self.make_card(
+                card_id=1,
+                expression="用語",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=10,
+                rank_source="yomitan",
+            ),
+            self.make_card(
+                card_id=2,
+                expression="既読",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=1000,
+                rank_source="jiten",
+            ),
+        ]
+
+        scored = score_cards(cards, strategy=STRATEGY_BALANCED_EASE_V1)
+
+        self.assertEqual([entry.card.card_id for entry in scored], [1, 2])
+        self.assertGreater(scored[0].frequency_score, scored[1].frequency_score)
+
     def test_default_soft_strategy_prefers_known_kanji_when_frequency_is_similar(self) -> None:
         cards = [
             self.make_card(
@@ -115,6 +140,31 @@ class RankingTests(unittest.TestCase):
         self.assertEqual([entry.card.card_id for entry in scored], [2, 1])
         self.assertEqual(scored[0].priority_label, "all_kanji_known")
         self.assertEqual(scored[1].priority_label, "kana_only")
+
+    def test_default_soft_strategy_treats_yomitan_as_primary_frequency_source(self) -> None:
+        cards = [
+            self.make_card(
+                card_id=1,
+                expression="用語",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=10,
+                rank_source="yomitan",
+            ),
+            self.make_card(
+                card_id=2,
+                expression="既読",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=1000,
+                rank_source="jiten",
+            ),
+        ]
+
+        scored = score_cards(cards, strategy=STRATEGY_FREQUENCY_FIRST_SOFT_V1)
+
+        self.assertEqual([entry.card.card_id for entry in scored], [1, 2])
+        self.assertGreater(scored[0].frequency_score, scored[1].frequency_score)
 
     def test_default_soft_strategy_allows_super_common_kana_to_beat_rare_known(self) -> None:
         cards = [

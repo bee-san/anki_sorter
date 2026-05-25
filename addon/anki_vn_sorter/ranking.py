@@ -123,7 +123,7 @@ def _score_cards_balanced(
         rank_score = _normalize_rank(card.raw_rank, max_rank)
         rank_multiplier = (
             1.0
-            if card.rank_source == "jiten"
+            if card.rank_source in {"jiten", "yomitan"}
             else freqsort_weight
             if card.rank_source == "freqsort"
             else 0.0
@@ -304,7 +304,7 @@ def _absolute_frequency_score(
     score = 1.0 / (1.0 + math.log10(max(rank, 1.0)))
     if rank_source == "freqsort":
         return score * freqsort_weight
-    if rank_source == "jiten":
+    if rank_source in {"jiten", "yomitan"}:
         return score
     return 0.0
 

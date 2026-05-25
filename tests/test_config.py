@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "addon"))
 from anki_vn_sorter.config import (
     AUTO_SORT_MODE_AFTER_SYNC,
     AUTO_SORT_MODE_PROFILE_OPEN,
+    ConfigValidationError,
     DEFAULT_JITEN_VN_CSV_URL,
     DEFAULT_KANA_ONLY_MULTIPLIER,
     DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS,
@@ -115,6 +116,20 @@ class ConfigTests(unittest.TestCase):
     def test_blank_jiten_url_remains_an_optional_override(self) -> None:
         config = parse_config({"jitenVnCsvUrl": ""})
         self.assertEqual(config.jiten_vn_csv_url, DEFAULT_JITEN_VN_CSV_URL)
+
+    def test_yomitan_frequency_index_url_round_trip(self) -> None:
+        url = "https://characterdictionary.tokyo/api/yomitan-frequency-index?entries=%5B%5D"
+        config = parse_config({"yomitanFrequencyIndexUrl": url})
+        self.assertEqual(config.yomitan_frequency_index_url, url)
+        self.assertEqual(config.to_dict()["yomitanFrequencyIndexUrl"], url)
+
+    def test_yomitan_frequency_index_url_rejects_file_url(self) -> None:
+        with self.assertRaises(ConfigValidationError):
+            parse_config({"yomitanFrequencyIndexUrl": "file:///tmp/freq.zip"})
+
+    def test_yomitan_frequency_index_url_rejects_missing_host(self) -> None:
+        with self.assertRaises(ConfigValidationError):
+            parse_config({"yomitanFrequencyIndexUrl": "https://"})
 
     def test_legacy_visual_novel_url_is_treated_as_no_override(self) -> None:
         config = parse_config({"jitenVnCsvUrl": LEGACY_DEFAULT_VN_CSV_URL})
