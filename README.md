@@ -1,170 +1,47 @@
 # Anki VN Sorter
 
-`anki_vn_sorter` is an Anki add-on for prioritizing new Kiku cards so the next cards you see tend to feel easier.
+Frequency-aware new-card ordering for Kiku decks, built for Japanese visual novel learners.
 
-It is designed for a Japanese visual novel workflow:
+![Anki add-on](https://img.shields.io/badge/Anki-add--on-blue)
+![Python](https://img.shields.io/badge/Python-3.x-3776AB)
+![Tests](https://img.shields.io/badge/tests-unittest-brightgreen)
+![Frequency source](https://img.shields.io/badge/frequency-Yomitan%20%2B%20Jiten-7A3)
 
-- only new cards are reordered
-- review and learning cards are untouched
-- Kiku cards are prioritized by how easy they should be to read now
-- Jiten frequency is the main decision signal, with soft readability penalties
-- by default, automatic sorting happens after desktop sync
-- the add-on defaults to Jiten `Global` and can switch to other Jiten lists
-- the add-on auto-refreshes the selected Jiten list from Jiten's export API
-- a bundled Jiten `Global` snapshot is included for offline fallback
-- a local HTTP endpoint still exists for manual or timer-based runs
+`anki_vn_sorter` reorders only your eligible new cards so the next Kiku cards
+you see are more likely to be useful, common, and readable with the kanji you
+already know.
 
-## What It Does
+It ships with Bee's Yomitan frequency dictionary, refreshes it once a week by
+default, and falls back safely to local caches, the bundled snapshot, Jiten, and
+Kiku `FreqSort`.
 
-By default, the add-on uses a blended score:
+**Quick Links:** [Install](#install) | [Quick Start](#quick-start) | [Algorithm](#the-algorithm) | [Yomitan Frequency Updates](#yomitan-frequency-updates) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
 
-- better Jiten frequency rank from the selected list is the main signal
-- `all_kanji_known` cards get no penalty
-- `kana_only` cards get a mild penalty, so they still rise when they are much more common
-- cards with unknown kanji get a stronger penalty, but super common ones can still appear early
-- partially-known unknown-kanji cards get a small bonus
+## Why Use It?
 
-This is intentionally not a general “difficulty score.” It is a practical
-Pareto-style new-card prioritizer.
+Anki can introduce new cards in insertion order, random order, or simple deck
+order. That is not enough for a sentence-mining workflow where 2,000 new cards
+can include a mix of easy known-kanji words, common kana-only words, and rare
+unknown-kanji words.
 
-## Algorithm Summary
+Anki VN Sorter gives you a practical middle ground:
 
-The default strategy is `frequency_first_soft_v1`.
+| Approach | What happens |
+| --- | --- |
+| Default Anki new-card order | Cards appear by insertion/random/deck behavior, without knowing what is common or readable. |
+| Plain frequency sorting | Common words rise, but kana-only and unknown-kanji cards can overwhelm the queue. |
+| Anki VN Sorter | Frequency is the main signal, then a readability layer keeps the queue useful instead of painful. |
 
-In plain terms, the add-on tries to show:
+## What You Get
 
-1. words that are very common in the selected Jiten list
-2. words that should be readable with what you already know
-3. some high-value kana-only and unknown-kanji words early, but not enough to make the queue painful
-
-The score works like this:
-
-- start with an absolute frequency score from the selected Jiten list
-- keep `all_kanji_known` words at full value
-- apply a small penalty to `kana_only` words, so they mix in without taking over
-- apply a larger penalty as unknown kanji increases
-- give a small bonus to partially-known unknown-kanji words
-
-So the queue is not hard-bucketed. Very common easy words rise first, but
-extremely common kana-only or partially-known words can still break in early.
-
-## Algorithm
-
-The default strategy is `frequency_first_soft_v1`.
-
-At a high level, the add-on does this:
-
-1. Find eligible cards with `scopeQuery`.
-2. Keep only `is:new` cards from supported note types.
-3. Build a known-kanji set from mature Kiku cards.
-4. Load the selected Jiten frequency list.
-5. Compute a blended score for each new card.
-6. Sort by that score and stable tie-breakers.
-7. Reposition only the matching new cards in Anki.
-
-More concretely:
-
-1. Candidate selection:
-   The default query is `note:Kiku is:new -is:suspended`.
-   Review and learning cards are ignored.
-
-2. Known-kanji extraction:
-   The add-on searches mature cards using `matureQuery` or the generated
-   `matureDays` query.
-   It reads the `Expression` field from those mature Kiku notes and extracts
-   kanji characters.
-   If a kanji appears there, it counts as known.
-
-3. Frequency source selection:
-   By default, the add-on uses Bee's updateable Yomitan frequency dictionary.
-   It refreshes the Yomitan cache weekly by default.
-   If `yomitanFrequencyIndexUrl` is blank, the add-on falls back to the
-   selected Jiten list from `jitenFrequencyListId`.
-   The default Jiten list is `global`.
-   The add-on tries to use:
-   - the fresh cache for the configured Yomitan dictionary
-   - the live Yomitan update URL
-   - the stale cache for the configured Yomitan dictionary
-   - the bundled Bee Yomitan snapshot
-   - the fresh cache for the selected Jiten list
-   - the live Jiten export API for the selected Jiten list
-   - the stale cache for the selected Jiten list
-   - the bundled `Global` snapshot when the selected list is `global`
-   - Kiku `FreqSort` only if no Jiten or Yomitan data is available
-
-4. Per-card features:
-   For each candidate card, the add-on reads:
-   - `Expression`
-   - extracted kanji count
-   - known kanji count
-   - Yomitan rank when configured, otherwise Jiten rank from the selected list
-   - Kiku `FreqSort` rank as fallback
-
-5. Blended scoring:
-   The default score is:
-   - absolute frequency score from Jiten, or `FreqSort` as fallback
-   - multiplied by a readability adjustment:
-     - `all_kanji_known`: `1.00`
-     - `kana_only`: `0.92`
-     - unknown kanji: `1 - min(0.18 * unknown_kanji_count, 0.54)`
-   - plus a small partial-known bonus:
-     - `0.04 * coverage_score` for cards that still have unknown kanji
-
-   This means:
-   - similar-frequency known-kanji cards usually beat kana-only cards
-   - super common kana-only cards can still rise early
-   - super common one-unknown-kanji cards can outrank weaker easy cards
-   - harder unknown-kanji cards still sink unless their frequency is very strong
-
-6. Final ordering:
-   Cards are sorted by:
-   - higher blended score
-   - then better raw rank
-   - then shorter expression length when `preferShorterExpressions = true`
-   - then current due
-   - then card template order
-   - then card id
-
-   The older `easy_first_tiered_v1` mode still exists if you want strict buckets.
-
-7. Repositioning:
-   The add-on calls Anki’s internal new-card reposition API.
-   It starts from the minimum due among the eligible cards and only reorders the
-   matching new cards.
-   Non-matching cards are left alone as much as possible.
-
-There are also optional strategies, `easy_first_tiered_v1` and
-`balanced_ease_v1`, but the default and recommended path is
-`frequency_first_soft_v1`.
-
-## Scope
-
-Default scope:
-
-- note type: `Kiku`
-- search: `note:Kiku is:new -is:suspended`
-
-By default, non-Kiku notes are ignored even if they are new.
-
-## How “Known Kanji” Works
-
-The add-on infers known kanji from mature Kiku cards in your collection.
-
-Default mature search:
-
-- `note:Kiku prop:ivl>=21 -is:suspended`
-
-If a kanji appears in the `Expression` field of a mature Kiku note, it counts as known for prioritization.
-
-This is only a proxy for real ease, but it works well enough for daily new-card ordering.
-
-## Requirements
-
-- Anki desktop
-- Kiku note type for the cards you want sorted
-- Linux only if you want the included `systemd --user` timer
-
-AnkiConnect is not required for sorting. The add-on runs inside Anki and exposes its own localhost endpoint.
+- **Special VN-first ranking algorithm:** `frequency_first_soft_v1` blends frequency with known-kanji readability.
+- **Auto-updating Yomitan frequency:** Bee's Yomitan dictionary is the default source and refreshes weekly.
+- **Offline-safe fallback:** stale cache, bundled Bee snapshot, Jiten, bundled Jiten Global, then Kiku `FreqSort`.
+- **AnkiDroid-safe automation:** automatic sorting defaults to `after_sync`, so desktop reorders after sync instead of before it.
+- **New cards only:** review and learning cards are untouched.
+- **Kiku-focused defaults:** `note:Kiku is:new -is:suspended` is the default scope.
+- **Manual controls:** run, refresh, or switch frequency sources from Anki's Tools menu.
+- **Local HTTP endpoint:** useful for scripts, health checks, and optional timer workflows.
 
 ## Install
 
@@ -174,101 +51,27 @@ Build the packaged add-on:
 python3 scripts/package_addon.py
 ```
 
-### Option 1: Install the `.ankiaddon`
+Then install `dist/anki_vn_sorter.ankiaddon` from Anki's add-ons screen and
+restart Anki.
 
-Use this if you want a normal end-user install.
-
-1. Build `dist/anki_vn_sorter.ankiaddon`.
-2. Open Anki.
-3. Open the add-ons screen in Anki and install the `.ankiaddon` file.
-4. Restart Anki after the install finishes.
-5. Open the profile you want to sort.
-
-### Option 2: Install from the source folder
-
-Use this if you want the Anki install to track your local working copy.
-
-Copy install:
-
-```bash
-mkdir -p ~/.local/share/Anki2/addons21/anki_vn_sorter
-cp -r addon/anki_vn_sorter/* ~/.local/share/Anki2/addons21/anki_vn_sorter/
-```
-
-Symlink install:
+For development, install the source folder directly:
 
 ```bash
 mkdir -p ~/.local/share/Anki2/addons21
 ln -sfn "$PWD/addon/anki_vn_sorter" ~/.local/share/Anki2/addons21/anki_vn_sorter
 ```
 
-Then restart Anki and open the profile you want to sort.
-
-## Update an Existing Install
-
-If you installed with the `.ankiaddon`:
-
-1. Rebuild the package:
-
-```bash
-python3 scripts/package_addon.py
-```
-
-2. Reinstall the new `dist/anki_vn_sorter.ankiaddon` from Anki’s add-ons screen.
-3. Restart Anki.
-
-If you installed by copying the source folder:
-
-1. Copy the updated files again:
-
-```bash
-cp -r addon/anki_vn_sorter/* ~/.local/share/Anki2/addons21/anki_vn_sorter/
-```
-
-2. Restart Anki.
-
-If you installed by symlink:
-
-- the files are already updated when this repo changes
-- just restart Anki
+Restart Anki after installing or updating.
 
 ## Quick Start
 
-1. Install the add-on using one of the methods above.
+1. Install the add-on.
+2. Restart Anki and open the profile you want to sort.
+3. Make sure your target cards are Kiku notes matching `note:Kiku is:new -is:suspended`.
+4. Run `Tools -> Anki VN Sorter -> Sort Kiku VN Cards Now`, or let it run automatically after sync.
+5. Check `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now` if you want to force a Yomitan/Jiten refresh.
 
-2. Open Anki and load the profile you want to sort.
-
-3. Optional: run it once manually from Anki:
-
-- `Tools -> Anki VN Sorter -> Sort Kiku VN Cards Now`
-- `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
-- `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` if you want a custom Yomitan source
-- `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
-
-4. Automatic mode is enabled by default through the add-on setting:
-
-- `autoSortMode = "after_sync"`
-
-That means the add-on will sort automatically after a successful sync on desktop.
-
-This default is intentional. A reorder that happens before desktop sync can interfere with new-card syncing between AnkiDroid and desktop; the issue you linked recommends reordering after syncing instead. Source: [Ankidroid new cards are not syncing with Anki desktop](https://skerritt.blog/ankidroid-new-cards-are-not-syncing-with-anki-desktop/).
-
-5. Optional: only if you want a Linux timer for a single-device workflow, install the `systemd --user` timer described below.
-
-## Automatic Sorting
-
-Recommended automatic mode:
-
-- `after_sync`
-
-Other modes:
-
-- `manual_only`
-- `profile_open`
-
-Set them in `Tools -> Add-ons -> Anki VN Sorter -> Config`.
-
-Recommended default:
+Default automatic mode:
 
 ```json
 {
@@ -276,19 +79,153 @@ Recommended default:
 }
 ```
 
-Why `after_sync` is the default:
+That mode is intentional: it keeps the reorder inside Anki and runs after
+desktop sync, which is safer when AnkiDroid is also part of the workflow.
 
-- it avoids reordering before sync
-- that is the safer choice if you study new cards on AnkiDroid
-- it keeps automatic behavior inside Anki instead of relying on an external timer
+## The Algorithm
+
+The default strategy is `frequency_first_soft_v1`.
+
+In plain English, the sorter tries to show cards that are:
+
+1. common in Bee's Yomitan frequency dictionary or the selected Jiten list
+2. readable with kanji you already know
+3. still flexible enough to let very common kana-only or partially-known words appear early
+
+The pipeline:
+
+1. Find eligible new cards with `scopeQuery`.
+2. Keep only supported note types from `modelNames`.
+3. Build a known-kanji set from mature Kiku cards.
+4. Load the active frequency source.
+5. Score every candidate with frequency plus readability.
+6. Reposition only the matching new cards through Anki's internal API.
+
+### Known Kanji
+
+The add-on infers known kanji from mature Kiku cards.
+
+Default mature search:
+
+```text
+note:Kiku prop:ivl>=21 -is:suspended
+```
+
+If a kanji appears in the `Expression` field of a mature Kiku note, it counts
+as known for prioritization. This is a proxy for readability, not a separate
+SRS or grading system.
+
+### Scoring
+
+The score starts with an absolute frequency score from the best available
+source:
+
+1. configured Yomitan dictionary
+2. selected Jiten list
+3. Kiku `FreqSort`
+
+Then the sorter applies readability adjustments:
+
+| Card shape | Default treatment |
+| --- | --- |
+| All kanji known | full value, multiplier `1.00` |
+| Kana-only | mild penalty, multiplier `0.92` |
+| Unknown kanji | penalty of `0.18` per unknown kanji, capped at `0.54` |
+| Partially-known unknown-kanji word | small bonus of `0.04 * coverage_score` |
+
+Final ordering uses:
+
+1. higher blended score
+2. better raw frequency rank
+3. shorter expression length when `preferShorterExpressions = true`
+4. current due
+5. card template order
+6. card id
+
+The older `easy_first_tiered_v1` and `balanced_ease_v1` strategies are still
+available, but `frequency_first_soft_v1` is the recommended default.
+
+## Yomitan Frequency Updates
+
+Bee's updateable Yomitan frequency dictionary is the default:
+
+```json
+{
+  "yomitanFrequencyIndexUrl": "https://characterdictionary.tokyo/api/yomitan-frequency-index?vndb_user=u306797&display_mode=occurrence&combine_mode=average",
+  "yomitanCacheTtlHours": 168
+}
+```
+
+`168` hours means the add-on tries to refresh the dictionary once a week.
+
+Load order:
+
+1. fresh Yomitan cache
+2. live Yomitan update URL
+3. stale Yomitan cache
+4. bundled Bee snapshot at `data/bee_frequency.zip`
+5. selected Jiten list
+6. bundled Jiten Global snapshot
+7. Kiku `FreqSort`
+
+Menu actions:
+
+- `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...`
+- `Tools -> Anki VN Sorter -> Clear Yomitan Frequency Dictionary URL`
+- `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
+
+Choosing a Jiten list clears the Yomitan URL and uses Jiten instead.
+
+## Automatic Sorting
+
+Recommended mode:
+
+```json
+{
+  "autoSortMode": "after_sync"
+}
+```
+
+Supported values:
+
+- `after_sync`
+- `profile_open`
+- `manual_only`
+
+`after_sync` maps to Anki's sync-finished hook. This is the safest default for
+multi-device use because the desktop reorder happens after sync, not before it.
+
+## Manual Commands
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8767/health
+```
+
+Run a sort:
+
+```bash
+curl -X POST http://127.0.0.1:8767/sort
+```
+
+Helper script:
+
+```bash
+python3 scripts/request_sort.py --force
+```
+
+`--force` ignores the helper script's local guard. The add-on still decides
+whether the current profile has already been sorted today.
 
 ## Optional Systemd Timer
 
-The repo still ships checkout-independent `systemd --user` unit templates in `systemd/`.
+The repo ships `systemd --user` unit templates in `systemd/`.
 
-This is optional and not the recommended path if you sync new cards across devices. A timer can run before you sync desktop, which is exactly the situation you wanted to avoid.
+This path is optional. Prefer `autoSortMode = "after_sync"` if you sync new
+cards across devices.
 
-Install them:
+Install the timer:
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -298,45 +235,16 @@ systemctl --user daemon-reload
 systemctl --user enable --now anki-vn-sorter.timer
 ```
 
-The timer works by calling [scripts/request_sort.py](/home/bee/Documents/src/github/anki_sorter/scripts/request_sort.py), which checks the add-on health endpoint and then calls:
-
-- `POST http://127.0.0.1:8767/sort`
-
-Important behavior:
-
-- it only works while Anki is running and the profile is open
-- the add-on enforces once-per-day sorting per Anki profile
-- the requester exits cleanly when Anki is not reachable
-- the timer retries hourly until Anki is available
-- it may run before you sync desktop, so prefer `autoSortMode = "after_sync"` for multi-device use
-
-## Manual Commands
-
-Manual HTTP check:
-
-```bash
-curl http://127.0.0.1:8767/health
-```
-
-Manual HTTP sort:
-
-```bash
-curl -X POST http://127.0.0.1:8767/sort
-```
-
-Optional helper script:
-
-```bash
-python3 scripts/request_sort.py --force
-```
-
-`--force` ignores the helper script’s local guard. The add-on still decides whether the current profile has already been sorted today.
+The timer calls `POST http://127.0.0.1:8767/sort`. It only works while Anki is
+running and the profile is open.
 
 ## Configuration
 
-Edit `addon/anki_vn_sorter/config.json` before packaging, or open `Tools -> Add-ons -> Anki VN Sorter -> Config` in Anki.
+Edit `addon/anki_vn_sorter/config.json` before packaging, or open
+`Tools -> Add-ons -> Anki VN Sorter -> Config` in Anki.
 
-The add-on now ships `addon/anki_vn_sorter/config.md`, so the config editor shows a help panel with the editable settings.
+The add-on ships `addon/anki_vn_sorter/config.md`, so Anki's config editor
+shows a help panel.
 
 Important keys:
 
@@ -344,117 +252,58 @@ Important keys:
 - `scopeQuery`
 - `matureQuery`
 - `matureDays`
-- `httpPort`
 - `strategy`
 - `autoSortMode`
+- `yomitanFrequencyIndexUrl`
+- `yomitanCacheTtlHours`
+- `jitenFrequencyListId`
+- `jitenCacheTtlHours`
+- `expressionField`
+- `freqSortField`
 - `tierOrder`
-- `preferShorterExpressions`
-- `freqSortWeight`
 - `kanaOnlyMultiplier`
 - `unknownKanjiPenaltyStep`
 - `unknownKanjiPenaltyCap`
 - `partialKnownCoverageBonus`
-- `jitenFrequencyListId`
-- `jitenDiscoveryUrl`
-- `jitenVnCsvUrl`
-- `yomitanFrequencyIndexUrl`
-- `jitenCacheTtlHours`
-- `yomitanCacheTtlHours`
-- `jitenRequestTimeoutSeconds`
-- `expressionField`
-- `readingField`
-- `freqSortField`
 
-Current strategies:
-
-- `frequency_first_soft_v1`: default, frequency-first with soft readability penalties
-- `easy_first_tiered_v1`: optional strict bucket mode
-- `balanced_ease_v1`: older weighted heuristic
-
-Tier labels for `tierOrder`:
-
-- `all_kanji_known`
-- `kana_only`
-- `one_unknown_kanji`
-- `two_unknown_kanji`
-- `three_plus_unknown_kanji`
-
-Recommended default:
+Recommended defaults:
 
 ```json
 {
+  "scopeQuery": "note:Kiku is:new -is:suspended",
+  "matureQuery": "",
+  "matureDays": 21,
   "strategy": "frequency_first_soft_v1",
+  "autoSortMode": "after_sync",
+  "yomitanFrequencyIndexUrl": "https://characterdictionary.tokyo/api/yomitan-frequency-index?vndb_user=u306797&display_mode=occurrence&combine_mode=average",
+  "yomitanCacheTtlHours": 168,
   "kanaOnlyMultiplier": 0.92,
   "unknownKanjiPenaltyStep": 0.18,
   "unknownKanjiPenaltyCap": 0.54,
-  "partialKnownCoverageBonus": 0.04,
-  "yomitanFrequencyIndexUrl": "https://characterdictionary.tokyo/api/yomitan-frequency-index?vndb_user=u306797&display_mode=occurrence&combine_mode=average",
-  "yomitanCacheTtlHours": 168,
-  "autoSortMode": "after_sync"
+  "partialKnownCoverageBonus": 0.04
 }
 ```
-
-Leave `matureQuery` as `""` if you want `matureDays` to control what counts as mature.
-
-Frequency source behavior:
-
-- by default, `yomitanFrequencyIndexUrl` points at Bee's updateable Yomitan frequency dictionary
-- by default, `yomitanCacheTtlHours` is `168`, so the Yomitan dictionary refreshes weekly
-- the add-on ships with `data/bee_frequency.zip` as a bundled fallback snapshot
-- set `yomitanFrequencyIndexUrl` from `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` to use a different Yomitan frequency dictionary
-- run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now` to force a refresh
-- choosing a Jiten list clears the Yomitan override and uses Jiten instead
-
-Jiten fallback behavior:
-
-- by default, `jitenFrequencyListId` is `global`
-- switch lists from `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
-- `Global` and `Kanji` are listed first; media-specific lists are marked as such
-- `jitenVnCsvUrl` is only an optional manual override now
-- the add-on refreshes the selected list cache when it becomes stale
-- if the live download fails, it falls back to the cache for that list
-- if the selected list has no usable cache and is `global`, it falls back to the bundled snapshot
 
 ## Endpoints
 
 The add-on starts a localhost server when a profile opens.
 
-Endpoints:
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | readiness, profile, config, last sort state, deck warnings |
+| `POST /sort` | run sort and return candidate/repositioning summary |
 
-- `GET /health`
-- `POST /sort`
-
-`/health` returns readiness, profile, config, last successful sort date, and deck warnings.
-
-`/sort` returns a summary including:
-
-- whether anything was applied
-- candidate count
-- repositioned count
-- warnings
-- a preview of the top-ranked cards
-
-The preview includes:
-
-- `priorityTier`
-- `priorityLabel`
-- `unknownKanjiCount`
-- `rankSource`
-- `rank`
+The sort preview includes `priorityTier`, `priorityLabel`,
+`unknownKanjiCount`, `rankSource`, and `rank`.
 
 ## Deck Behavior
 
-The add-on repositions new cards. It does not override Anki’s own scheduling model for review cards.
+The add-on repositions new cards. It does not touch review or learning cards,
+and it does not override Anki's scheduler.
 
-For the sorted order to show up reliably, your deck options should avoid random new-card handling. The add-on will warn when deck options look incompatible with manual repositioning.
-
-## Repo Layout
-
-- `addon/anki_vn_sorter/`: add-on source
-- `scripts/request_sort.py`: optional manual helper
-- `scripts/package_addon.py`: package builder
-- `systemd/`: user unit templates
-- `tests/`: test suite
+For the sorted order to show up reliably, your deck options should avoid random
+new-card handling. `/health` reports warnings when deck options look
+incompatible with manual repositioning.
 
 ## Development
 
@@ -476,31 +325,40 @@ Rebuild the add-on package:
 python3 scripts/package_addon.py
 ```
 
-The packager excludes runtime state and bytecode files from the `.ankiaddon`.
+The packager excludes runtime state, local add-on metadata, and bytecode files
+from the `.ankiaddon`.
+
+## Repo Layout
+
+- `addon/anki_vn_sorter/`: add-on source
+- `addon/anki_vn_sorter/data/bee_frequency.zip`: bundled Bee Yomitan fallback
+- `scripts/package_addon.py`: package builder
+- `scripts/request_sort.py`: optional manual helper
+- `systemd/`: optional user unit templates
+- `tests/`: test suite
 
 ## Troubleshooting
 
-If the timer never succeeds:
-
-- make sure Anki is running
-- make sure the correct profile is open
-- check `curl http://127.0.0.1:8767/health`
-- check `systemctl --user status anki-vn-sorter.timer`
-
 If sorting does nothing:
 
-- confirm your new cards are actually Kiku notes
+- confirm your new cards are Kiku notes
 - confirm they match `scopeQuery`
 - confirm the note has an `Expression` field value
+- check `curl http://127.0.0.1:8767/health`
 
 If frequency ranking is missing:
 
-- if using Yomitan, confirm `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` has a valid `http(s)` index or ZIP URL
 - run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
-- if you use a custom mirror, set `jitenVnCsvUrl` directly
+- confirm `yomitanFrequencyIndexUrl` is blank or a valid `http(s)` index/ZIP URL
 - check whether the Yomitan or Jiten cache could be refreshed
 
 If the order shown in study still looks wrong:
 
 - inspect deck-option warnings from `/health`
 - make sure your deck is not randomizing or re-sorting new cards after repositioning
+
+If the timer never succeeds:
+
+- make sure Anki is running
+- make sure the correct profile is open
+- check `systemctl --user status anki-vn-sorter.timer`
