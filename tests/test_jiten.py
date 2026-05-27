@@ -18,6 +18,7 @@ from anki_vn_sorter.jiten import (
     parse_frequency_csv,
     refresh_frequency_lookup,
 )
+from anki_vn_sorter.yomitan_frequency import YomitanLoadError, YomitanLoadResult
 
 
 class ParseFrequencyCsvTests(unittest.TestCase):
@@ -167,6 +168,163 @@ class ParseFrequencyCsvTests(unittest.TestCase):
                     for warning in lookup.warnings
                 )
             )
+
+    def test_prefers_configured_yomitan_frequency_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            user_dir = Path(temp_dir)
+            calls: list[tuple[str, Path, int, int, bool]] = []
+
+            def fake_load_yomitan_frequency_lookup(
+                index_url: str,
+                passed_user_dir: Path,
+                timeout_seconds: int,
+                cache_ttl_hours: int,
+                opener=None,
+                *,
+                force_refresh: bool = False,
+            ) -> YomitanLoadResult:
+                calls.append(
+                    (
+                        index_url,
+                        passed_user_dir,
+                        timeout_seconds,
+                        cache_ttl_hours,
+                        force_refresh,
+                    )
+                )
+                return YomitanLoadResult(
+                    ranks={"既読": 2.0},
+                    title="Bee's Frequency Dictionary",
+                    source_url=index_url,
+                    download_url="https://example.test/frequency.zip",
+                    revision="001",
+                    warnings=("from loader",),
+                    source_kind="remote",
+                )
+
+            original_ensure_user_files_dir = jiten.ensure_user_files_dir
+            original_load_yomitan_frequency_lookup = jiten.load_yomitan_frequency_lookup
+            jiten.ensure_user_files_dir = lambda: user_dir
+            jiten.load_yomitan_frequency_lookup = fake_load_yomitan_frequency_lookup
+            try:
+                lookup = load_frequency_lookup(
+                    AddonConfig(
+                        yomitan_frequency_index_url=" https://example.test/index.json ",
+                        jiten_request_timeout_seconds=7,
+                        jiten_cache_ttl_hours=11,
+                    ),
+                    opener=lambda url, timeout: self.fail("Jiten CSV should not be fetched"),
+                )
+            finally:
+                jiten.ensure_user_files_dir = original_ensure_user_files_dir
+                jiten.load_yomitan_frequency_lookup = original_load_yomitan_frequency_lookup
+
+            self.assertEqual(lookup.rank_for("既読"), 2.0)
+            self.assertEqual(lookup.source_url, "https://example.test/index.json")
+            self.assertEqual(lookup.source_kind, "yomitan")
+            self.assertEqual(lookup.warnings, ("from loader",))
+            self.assertEqual(
+                calls,
+                [("https://example.test/index.json", user_dir, 7, 11, False)],
+            )
+
+    def test_refresh_forwards_force_refresh_to_yomitan_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            user_dir = Path(temp_dir)
+            force_refresh_values: list[bool] = []
+
+            def fake_load_yomitan_frequency_lookup(
+                index_url: str,
+                passed_user_dir: Path,
+                timeout_seconds: int,
+                cache_ttl_hours: int,
+                opener=None,
+                *,
+                force_refresh: bool = False,
+            ) -> YomitanLoadResult:
+                force_refresh_values.append(force_refresh)
+                return YomitanLoadResult(
+                    ranks={"更新": 1.0},
+                    title=None,
+                    source_url=index_url,
+                    download_url=index_url,
+                    revision=None,
+                    warnings=tuple(),
+                    source_kind="cache",
+                )
+
+            original_ensure_user_files_dir = jiten.ensure_user_files_dir
+            original_load_yomitan_frequency_lookup = jiten.load_yomitan_frequency_lookup
+            jiten.ensure_user_files_dir = lambda: user_dir
+            jiten.load_yomitan_frequency_lookup = fake_load_yomitan_frequency_lookup
+            try:
+                lookup = refresh_frequency_lookup(
+                    AddonConfig(
+                        yomitan_frequency_index_url="https://example.test/index.json"
+                    )
+                )
+            finally:
+                jiten.ensure_user_files_dir = original_ensure_user_files_dir
+                jiten.load_yomitan_frequency_lookup = original_load_yomitan_frequency_lookup
+
+            self.assertEqual(lookup.rank_for("更新"), 1.0)
+            self.assertEqual(lookup.source_kind, "yomitan_cache")
+            self.assertEqual(force_refresh_values, [True])
+
+    def test_yomitan_failure_falls_back_to_jiten_cache_with_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            user_dir = Path(temp_dir)
+            cache_path = user_dir / "jiten_frequency_global.csv"
+            cache_path.write_text("expression,rank\n退避,5\n", encoding="utf-8")
+            os.utime(cache_path, (1, 1))
+
+            def fake_load_yomitan_frequency_lookup(*args, **kwargs) -> YomitanLoadResult:
+                raise YomitanLoadError("boom")
+
+            original_ensure_user_files_dir = jiten.ensure_user_files_dir
+            original_load_yomitan_frequency_lookup = jiten.load_yomitan_frequency_lookup
+            jiten.ensure_user_files_dir = lambda: user_dir
+            jiten.load_yomitan_frequency_lookup = fake_load_yomitan_frequency_lookup
+            try:
+                lookup = load_frequency_lookup(
+                    AddonConfig(
+                        yomitan_frequency_index_url="https://example.test/index.json",
+                        jiten_vn_csv_url="https://example.invalid/visual-novel.csv",
+                        jiten_cache_ttl_hours=24,
+                    ),
+                    opener=lambda url, timeout: "<html>error</html>",
+                )
+            finally:
+                jiten.ensure_user_files_dir = original_ensure_user_files_dir
+                jiten.load_yomitan_frequency_lookup = original_load_yomitan_frequency_lookup
+
+            self.assertEqual(lookup.rank_for("退避"), 5.0)
+            self.assertEqual(lookup.source_kind, "cache")
+            self.assertTrue(
+                any(
+                    "Could not load the configured Yomitan frequency dictionary" in warning
+                    for warning in lookup.warnings
+                )
+            )
+
+    def test_blank_yomitan_url_preserves_jiten_lookup_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            user_dir = Path(temp_dir)
+            original_ensure_user_files_dir = jiten.ensure_user_files_dir
+            jiten.ensure_user_files_dir = lambda: user_dir
+            try:
+                lookup = load_frequency_lookup(
+                    AddonConfig(
+                        yomitan_frequency_index_url="  ",
+                        jiten_vn_csv_url="https://example.invalid/visual-novel.csv",
+                    ),
+                    opener=lambda url, timeout: "expression,rank\n既読,3\n",
+                )
+            finally:
+                jiten.ensure_user_files_dir = original_ensure_user_files_dir
+
+            self.assertEqual(lookup.rank_for("既読"), 3.0)
+            self.assertEqual(lookup.source_kind, "remote")
 
 
 if __name__ == "__main__":

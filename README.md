@@ -76,21 +76,23 @@ More concretely:
    If a kanji appears there, it counts as known.
 
 3. Frequency source selection:
-   The active list comes from `jitenFrequencyListId`.
+   The active list normally comes from `jitenFrequencyListId`.
    The default is `global`.
-   The add-on tries to use:
-   - the fresh cache for the selected list
-   - the live Jiten export API for the selected list
-   - the stale cache for the selected list
+   If `yomitanFrequencyIndexUrl` is set, the add-on uses that Yomitan
+   frequency dictionary first instead.
+   Otherwise, the add-on tries to use:
+   - the fresh cache for the selected Jiten list
+   - the live Jiten export API for the selected Jiten list
+   - the stale cache for the selected Jiten list
    - the bundled `Global` snapshot when the selected list is `global`
-   - Kiku `FreqSort` only if no Jiten data is available
+   - Kiku `FreqSort` only if no Jiten or Yomitan data is available
 
 4. Per-card features:
    For each candidate card, the add-on reads:
    - `Expression`
    - extracted kanji count
    - known kanji count
-   - Jiten rank from the selected list
+   - Yomitan rank when configured, otherwise Jiten rank from the selected list
    - Kiku `FreqSort` rank as fallback
 
 5. Blended scoring:
@@ -171,7 +173,7 @@ python3 scripts/package_addon.py
 
 Use this if you want a normal end-user install.
 
-1. Build [dist/anki_vn_sorter.ankiaddon](/home/bee/Documents/src/github/anki_sorter/dist/anki_vn_sorter.ankiaddon).
+1. Build `dist/anki_vn_sorter.ankiaddon`.
 2. Open Anki.
 3. Open the add-ons screen in Anki and install the `.ankiaddon` file.
 4. Restart Anki after the install finishes.
@@ -192,7 +194,7 @@ Symlink install:
 
 ```bash
 mkdir -p ~/.local/share/Anki2/addons21
-ln -sfn /home/bee/Documents/src/github/anki_sorter/addon/anki_vn_sorter ~/.local/share/Anki2/addons21/anki_vn_sorter
+ln -sfn "$PWD/addon/anki_vn_sorter" ~/.local/share/Anki2/addons21/anki_vn_sorter
 ```
 
 Then restart Anki and open the profile you want to sort.
@@ -207,7 +209,7 @@ If you installed with the `.ankiaddon`:
 python3 scripts/package_addon.py
 ```
 
-2. Reinstall the new [dist/anki_vn_sorter.ankiaddon](/home/bee/Documents/src/github/anki_sorter/dist/anki_vn_sorter.ankiaddon) from Anki’s add-ons screen.
+2. Reinstall the new `dist/anki_vn_sorter.ankiaddon` from Anki’s add-ons screen.
 3. Restart Anki.
 
 If you installed by copying the source folder:
@@ -235,7 +237,8 @@ If you installed by symlink:
 
 - `Tools -> Anki VN Sorter -> Sort Kiku VN Cards Now`
 - `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
-- `Tools -> Anki VN Sorter -> Refresh Current Jiten Frequency List Now`
+- `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` if you want a custom Yomitan source
+- `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
 
 4. Automatic mode is enabled by default through the add-on setting:
 
@@ -276,7 +279,7 @@ Why `after_sync` is the default:
 
 ## Optional Systemd Timer
 
-The repo still ships checkout-independent `systemd --user` unit templates in [systemd](/home/bee/Documents/src/github/anki_sorter/systemd).
+The repo still ships checkout-independent `systemd --user` unit templates in `systemd/`.
 
 This is optional and not the recommended path if you sync new cards across devices. A timer can run before you sync desktop, which is exactly the situation you wanted to avoid.
 
@@ -326,9 +329,9 @@ python3 scripts/request_sort.py --force
 
 ## Configuration
 
-Edit [addon/anki_vn_sorter/config.json](/home/bee/Documents/src/github/anki_sorter/addon/anki_vn_sorter/config.json) before packaging, or open `Tools -> Add-ons -> Anki VN Sorter -> Config` in Anki.
+Edit `addon/anki_vn_sorter/config.json` before packaging, or open `Tools -> Add-ons -> Anki VN Sorter -> Config` in Anki.
 
-The add-on now ships [config.md](/home/bee/Documents/src/github/anki_sorter/addon/anki_vn_sorter/config.md), so the config editor shows a help panel with the editable settings.
+The add-on now ships `addon/anki_vn_sorter/config.md`, so the config editor shows a help panel with the editable settings.
 
 Important keys:
 
@@ -349,6 +352,7 @@ Important keys:
 - `jitenFrequencyListId`
 - `jitenDiscoveryUrl`
 - `jitenVnCsvUrl`
+- `yomitanFrequencyIndexUrl`
 - `jitenCacheTtlHours`
 - `jitenRequestTimeoutSeconds`
 - `expressionField`
@@ -390,6 +394,8 @@ Jiten behavior:
 - switch lists from `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
 - `Global` and `Kanji` are listed first; media-specific lists are marked as such
 - `jitenVnCsvUrl` is only an optional manual override now
+- set `yomitanFrequencyIndexUrl` from `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` to use a Yomitan frequency dictionary instead of Jiten
+- choosing a Jiten list clears the Yomitan override
 - the add-on refreshes the selected list cache when it becomes stale
 - if the live download fails, it falls back to the cache for that list
 - if the selected list has no usable cache and is `global`, it falls back to the bundled snapshot
@@ -429,11 +435,11 @@ For the sorted order to show up reliably, your deck options should avoid random 
 
 ## Repo Layout
 
-- [addon/anki_vn_sorter](/home/bee/Documents/src/github/anki_sorter/addon/anki_vn_sorter): add-on source
-- [scripts/request_sort.py](/home/bee/Documents/src/github/anki_sorter/scripts/request_sort.py): optional manual helper
-- [scripts/package_addon.py](/home/bee/Documents/src/github/anki_sorter/scripts/package_addon.py): package builder
-- [systemd](/home/bee/Documents/src/github/anki_sorter/systemd): user unit templates
-- [tests](/home/bee/Documents/src/github/anki_sorter/tests): test suite
+- `addon/anki_vn_sorter/`: add-on source
+- `scripts/request_sort.py`: optional manual helper
+- `scripts/package_addon.py`: package builder
+- `systemd/`: user unit templates
+- `tests/`: test suite
 
 ## Development
 
@@ -474,7 +480,8 @@ If sorting does nothing:
 
 If frequency ranking is missing:
 
-- run `Tools -> Anki VN Sorter -> Refresh Current Jiten Frequency List Now`
+- if using Yomitan, confirm `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` has a valid `http(s)` index or ZIP URL
+- run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
 - if you use a custom mirror, set `jitenVnCsvUrl` directly
 - check whether the Jiten cache could be refreshed
 

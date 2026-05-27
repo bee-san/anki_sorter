@@ -5,7 +5,7 @@ from datetime import date
 from typing import Any
 
 from .config import AddonConfig
-from .jiten import load_frequency_lookup
+from .jiten import FrequencyLookup, load_frequency_lookup
 from .normalization import extract_kanji_chars, strip_html_text
 from .ranking import CardInput, parse_freqsort, score_cards
 from .state import ProfileState, load_state, save_state
@@ -97,9 +97,10 @@ def run_sort_on_collection(
         kanji_chars = extract_kanji_chars(normalized_expression)
         known_count = sum(1 for char in kanji_chars if char in known_kanji)
         freqsort_rank = parse_freqsort(_get_note_field(note, config.freqsort_field))
-        jiten_rank = lookup.rank_for(normalized_expression)
-        raw_rank = jiten_rank if jiten_rank is not None else freqsort_rank
-        rank_source = "jiten" if jiten_rank is not None else "freqsort" if freqsort_rank is not None else None
+        frequency_rank = lookup.rank_for(normalized_expression)
+        frequency_source = _lookup_rank_source(lookup)
+        raw_rank = frequency_rank if frequency_rank is not None else freqsort_rank
+        rank_source = frequency_source if frequency_rank is not None else "freqsort" if freqsort_rank is not None else None
 
         candidates.append(
             CardInput(
@@ -208,6 +209,14 @@ def _persist_summary(profile_name: str | None, today: str, summary: SortSummary)
         ProfileState(last_success_ymd=today, last_summary=summary.to_dict()),
     )
     save_state(updated_state)
+
+
+def _lookup_rank_source(lookup: FrequencyLookup) -> str:
+    if lookup.source_kind.startswith("yomitan"):
+        return "yomitan"
+    if lookup.source_kind in {"remote", "cache", "bundled"}:
+        return "jiten"
+    return "frequency"
 
 
 def _int_from_summary(summary: dict[str, Any], key: str) -> int:

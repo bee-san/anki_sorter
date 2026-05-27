@@ -16,6 +16,7 @@ from .config import AddonConfig
 from .jiten_lists import get_frequency_list_definition
 from .normalization import normalize_lookup_text
 from .state import addon_dir, ensure_user_files_dir
+from .yomitan_frequency import YomitanLoadError, load_yomitan_frequency_lookup
 
 CSV_HREF_RE = re.compile(r'href="([^"]+csv[^"]*)"', re.IGNORECASE)
 QUOTED_CSV_RE = re.compile(r'["\']([^"\']+csv[^"\']*)["\']', re.IGNORECASE)
@@ -65,12 +66,35 @@ def load_frequency_lookup(
     force_refresh: bool = False,
 ) -> FrequencyLookup:
     opener = opener or _default_fetch_text
-    frequency_list = get_frequency_list_definition(config.jiten_frequency_list_id)
     user_dir = ensure_user_files_dir()
+    warnings: list[str] = []
+
+    yomitan_index_url = config.yomitan_frequency_index_url.strip()
+    if yomitan_index_url:
+        try:
+            loaded = load_yomitan_frequency_lookup(
+                yomitan_index_url,
+                user_dir,
+                config.jiten_request_timeout_seconds,
+                config.jiten_cache_ttl_hours,
+                force_refresh=force_refresh,
+            )
+            return FrequencyLookup(
+                ranks=loaded.ranks,
+                source_url=loaded.source_url,
+                warnings=loaded.warnings,
+                source_kind=_yomitan_source_kind(loaded.source_kind),
+            )
+        except YomitanLoadError as error:
+            warnings.append(
+                "Could not load the configured Yomitan frequency dictionary "
+                f"from {yomitan_index_url}: {error}. Falling back to Jiten."
+            )
+
+    frequency_list = get_frequency_list_definition(config.jiten_frequency_list_id)
     cache_path = _cache_path(user_dir, frequency_list.id)
     meta_path = _meta_path(user_dir, frequency_list.id)
     _migrate_legacy_visual_novel_cache(user_dir, frequency_list.id, cache_path, meta_path)
-    warnings: list[str] = []
 
     meta = _read_json(meta_path)
     cache_is_fresh = _is_fresh(cache_path, config.jiten_cache_ttl_hours)
@@ -140,6 +164,12 @@ def refresh_frequency_lookup(
     opener: Callable[[str, int], str] | None = None,
 ) -> FrequencyLookup:
     return load_frequency_lookup(config, opener=opener, force_refresh=True)
+
+
+def _yomitan_source_kind(source_kind: str) -> str:
+    if source_kind == "cache":
+        return "yomitan_cache"
+    return "yomitan"
 
 
 def discover_visual_novel_csv_url(page_text: str, base_url: str) -> str | None:
@@ -290,7 +320,7 @@ def _fetch_remote_lookup(
     try:
         csv_text = opener(csv_url, config.jiten_request_timeout_seconds)
         parsed_ranks = parse_frequency_csv(csv_text)
-        cache_path.write_text(csv_text, encoding="utf-8")
+        _write_text_atomic(cache_path, csv_text)
         _write_json(
             meta_path,
             {
@@ -438,6 +468,12 @@ def _read_json(path: Path) -> dict[str, object] | None:
     return None
 
 
+def _write_text_atomic(path: Path, text: str) -> None:
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(text, encoding="utf-8")
+    temp_path.replace(path)
+
+
 def _write_json(path: Path, payload: dict[str, object]) -> None:
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=True, indent=2, sort_keys=True)
+    text = json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True)
+    _write_text_atomic(path, text)

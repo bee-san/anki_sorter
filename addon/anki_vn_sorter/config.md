@@ -97,6 +97,16 @@ Network settings:
   Optional direct CSV URL override.
   Leave it as `""` unless you want to bypass the built-in Jiten list selector.
 
+- `yomitanFrequencyIndexUrl`
+  Optional Yomitan frequency dictionary index or ZIP URL.
+  Leave it as `""` to use the selected Jiten list.
+  When set, Yomitan is tried first and Jiten remains the fallback if refresh fails.
+  You can set or clear this from:
+  - `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...`
+  - `Tools -> Anki VN Sorter -> Clear Yomitan Frequency Dictionary URL`
+
+  Choosing a Jiten list from the menu clears this Yomitan override.
+
 - `jitenDiscoveryUrl`
   Legacy setting retained for compatibility. The add-on now uses Jiten's API
   directly for the built-in list selector.

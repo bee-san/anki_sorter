@@ -11,6 +11,7 @@
   "jitenDiscoveryUrl": "https://jiten.moe/other",
   "jitenFrequencyListId": "global",
   "jitenVnCsvUrl": "",
+  "yomitanFrequencyIndexUrl": "",
   "jitenCacheTtlHours": 24,
   "jitenRequestTimeoutSeconds": 20,
   "expressionField": "Expression",
