@@ -64,6 +64,7 @@ def load_yomitan_frequency_lookup(
     timeout_seconds: int,
     cache_ttl_hours: int,
     opener: Callable[[str, int], bytes] | None = None,
+    bundled_zip_path: Path | None = None,
     *,
     force_refresh: bool = False,
 ) -> YomitanLoadResult:
@@ -122,6 +123,7 @@ def load_yomitan_frequency_lookup(
             source_kind="remote",
         )
     except Exception as error:
+        cache_error: Exception | None = None
         if cache_path.exists():
             try:
                 return _load_cached_yomitan(
@@ -135,13 +137,37 @@ def load_yomitan_frequency_lookup(
                         ]
                     ),
                 )
-            except Exception as cache_error:
-                raise YomitanLoadError(
-                    f"Could not refresh Yomitan frequency dictionary ({error}); "
-                    f"stale cache was invalid ({cache_error})."
-                ) from cache_error
+            except Exception as error_from_cache:
+                cache_error = error_from_cache
+                warnings.append(
+                    "Ignoring an invalid stale cached Yomitan frequency dictionary: "
+                    f"{cache_error}"
+                )
+        if bundled_zip_path is not None and bundled_zip_path.exists():
+            try:
+                return _load_bundled_yomitan(
+                    bundled_zip_path,
+                    index_url,
+                    warnings=tuple(
+                        [
+                            *warnings,
+                            "Using the bundled Bee Yomitan frequency dictionary "
+                            f"after refresh failed: {error}",
+                        ]
+                    ),
+                )
+            except Exception as bundled_error:
+                warnings.append(
+                    "Could not load the bundled Bee Yomitan frequency dictionary: "
+                    f"{bundled_error}"
+                )
         if isinstance(error, YomitanLoadError):
             raise
+        if cache_error is not None:
+            raise YomitanLoadError(
+                f"Could not refresh Yomitan frequency dictionary ({error}); "
+                f"stale cache was invalid ({cache_error})."
+            ) from cache_error
         raise YomitanLoadError(f"Could not load Yomitan frequency dictionary: {error}") from error
 
 
@@ -269,6 +295,27 @@ def _load_cached_yomitan(
         revision=_meta_string(meta, "revision") or parsed.revision,
         warnings=warnings,
         source_kind="cache",
+    )
+
+
+def _load_bundled_yomitan(
+    bundled_zip_path: Path,
+    index_url: str,
+    *,
+    warnings: tuple[str, ...],
+) -> YomitanLoadResult:
+    parsed = parse_yomitan_frequency_zip(
+        bundled_zip_path.read_bytes(),
+        source_url=index_url,
+    )
+    return YomitanLoadResult(
+        ranks=parsed.ranks,
+        title=parsed.title,
+        source_url=index_url,
+        download_url=None,
+        revision=parsed.revision,
+        warnings=warnings,
+        source_kind="bundled",
     )
 
 

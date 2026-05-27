@@ -334,6 +334,33 @@ class LoadYomitanFrequencyLookupTests(unittest.TestCase):
         self.assertEqual(loaded.source_kind, "cache")
         self.assertTrue(any("stale cached Yomitan" in warning for warning in loaded.warnings))
 
+    def test_bad_remote_uses_bundled_snapshot_when_no_cache_exists(self) -> None:
+        bundled_zip = _frequency_zip(
+            {"title": "Bee's Frequency Dictionary", "revision": "seed"},
+            [["蜂", "freq", {"value": 100}]],
+        )
+
+        def opener(_url: str, _timeout: int) -> bytes:
+            raise OSError("network down")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            user_dir = Path(tmp)
+            bundled_path = user_dir / "bee_frequency.zip"
+            bundled_path.write_bytes(bundled_zip)
+            loaded = load_yomitan_frequency_lookup(
+                self.INDEX_URL,
+                user_dir,
+                5,
+                168,
+                opener=opener,
+                bundled_zip_path=bundled_path,
+            )
+
+        self.assertEqual(loaded.ranks["蜂"], 1.0)
+        self.assertEqual(loaded.title, "Bee's Frequency Dictionary")
+        self.assertEqual(loaded.source_kind, "bundled")
+        self.assertTrue(any("bundled Bee Yomitan" in warning for warning in loaded.warnings))
+
     def test_relative_download_url_is_resolved_against_index_url(self) -> None:
         index_url = "https://example.test/api/yomitan/index.json?x=1"
         zip_bytes = _frequency_zip({"title": "Remote"}, [["語", "freq", {"value": 100}]])

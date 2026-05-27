@@ -76,11 +76,16 @@ More concretely:
    If a kanji appears there, it counts as known.
 
 3. Frequency source selection:
-   The active list normally comes from `jitenFrequencyListId`.
-   The default is `global`.
-   If `yomitanFrequencyIndexUrl` is set, the add-on uses that Yomitan
-   frequency dictionary first instead.
-   Otherwise, the add-on tries to use:
+   By default, the add-on uses Bee's updateable Yomitan frequency dictionary.
+   It refreshes the Yomitan cache weekly by default.
+   If `yomitanFrequencyIndexUrl` is blank, the add-on falls back to the
+   selected Jiten list from `jitenFrequencyListId`.
+   The default Jiten list is `global`.
+   The add-on tries to use:
+   - the fresh cache for the configured Yomitan dictionary
+   - the live Yomitan update URL
+   - the stale cache for the configured Yomitan dictionary
+   - the bundled Bee Yomitan snapshot
    - the fresh cache for the selected Jiten list
    - the live Jiten export API for the selected Jiten list
    - the stale cache for the selected Jiten list
@@ -354,6 +359,7 @@ Important keys:
 - `jitenVnCsvUrl`
 - `yomitanFrequencyIndexUrl`
 - `jitenCacheTtlHours`
+- `yomitanCacheTtlHours`
 - `jitenRequestTimeoutSeconds`
 - `expressionField`
 - `readingField`
@@ -382,20 +388,29 @@ Recommended default:
   "unknownKanjiPenaltyStep": 0.18,
   "unknownKanjiPenaltyCap": 0.54,
   "partialKnownCoverageBonus": 0.04,
+  "yomitanFrequencyIndexUrl": "https://characterdictionary.tokyo/api/yomitan-frequency-index?vndb_user=u306797&display_mode=occurrence&combine_mode=average",
+  "yomitanCacheTtlHours": 168,
   "autoSortMode": "after_sync"
 }
 ```
 
 Leave `matureQuery` as `""` if you want `matureDays` to control what counts as mature.
 
-Jiten behavior:
+Frequency source behavior:
+
+- by default, `yomitanFrequencyIndexUrl` points at Bee's updateable Yomitan frequency dictionary
+- by default, `yomitanCacheTtlHours` is `168`, so the Yomitan dictionary refreshes weekly
+- the add-on ships with `data/bee_frequency.zip` as a bundled fallback snapshot
+- set `yomitanFrequencyIndexUrl` from `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` to use a different Yomitan frequency dictionary
+- run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now` to force a refresh
+- choosing a Jiten list clears the Yomitan override and uses Jiten instead
+
+Jiten fallback behavior:
 
 - by default, `jitenFrequencyListId` is `global`
 - switch lists from `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
 - `Global` and `Kanji` are listed first; media-specific lists are marked as such
 - `jitenVnCsvUrl` is only an optional manual override now
-- set `yomitanFrequencyIndexUrl` from `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` to use a Yomitan frequency dictionary instead of Jiten
-- choosing a Jiten list clears the Yomitan override
 - the add-on refreshes the selected list cache when it becomes stale
 - if the live download fails, it falls back to the cache for that list
 - if the selected list has no usable cache and is `global`, it falls back to the bundled snapshot
@@ -483,7 +498,7 @@ If frequency ranking is missing:
 - if using Yomitan, confirm `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...` has a valid `http(s)` index or ZIP URL
 - run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
 - if you use a custom mirror, set `jitenVnCsvUrl` directly
-- check whether the Jiten cache could be refreshed
+- check whether the Yomitan or Jiten cache could be refreshed
 
 If the order shown in study still looks wrong:
 

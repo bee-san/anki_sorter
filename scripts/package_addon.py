@@ -5,6 +5,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 EXCLUDED_DIR_NAMES = {"__pycache__", "user_files"}
+EXCLUDED_FILE_NAMES = {"meta.json"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 
 
@@ -15,6 +16,8 @@ def iter_package_files(addon_root: Path) -> list[Path]:
             continue
         relative_path = path.relative_to(addon_root)
         if any(part in EXCLUDED_DIR_NAMES for part in relative_path.parts):
+            continue
+        if path.name in EXCLUDED_FILE_NAMES:
             continue
         if path.suffix in EXCLUDED_SUFFIXES:
             continue

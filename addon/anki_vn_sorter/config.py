@@ -27,8 +27,12 @@ DEFAULT_AUTO_SORT_MODE = AUTO_SORT_MODE_AFTER_SYNC
 DEFAULT_JITEN_DISCOVERY_URL = "https://jiten.moe/other"
 DEFAULT_JITEN_FREQUENCY_LIST = DEFAULT_JITEN_FREQUENCY_LIST_ID
 DEFAULT_JITEN_VN_CSV_URL = ""
-DEFAULT_YOMITAN_FREQUENCY_INDEX_URL = ""
+DEFAULT_YOMITAN_FREQUENCY_INDEX_URL = (
+    "https://characterdictionary.tokyo/api/yomitan-frequency-index"
+    "?vndb_user=u306797&display_mode=occurrence&combine_mode=average"
+)
 DEFAULT_JITEN_CACHE_TTL_HOURS = 24
+DEFAULT_YOMITAN_CACHE_TTL_HOURS = 168
 DEFAULT_JITEN_REQUEST_TIMEOUT_SECONDS = 20
 DEFAULT_EXPRESSION_FIELD = "Expression"
 DEFAULT_READING_FIELD = "ExpressionReading"
@@ -91,6 +95,7 @@ class AddonConfig:
     jiten_vn_csv_url: str = DEFAULT_JITEN_VN_CSV_URL
     yomitan_frequency_index_url: str = DEFAULT_YOMITAN_FREQUENCY_INDEX_URL
     jiten_cache_ttl_hours: int = DEFAULT_JITEN_CACHE_TTL_HOURS
+    yomitan_cache_ttl_hours: int = DEFAULT_YOMITAN_CACHE_TTL_HOURS
     jiten_request_timeout_seconds: int = DEFAULT_JITEN_REQUEST_TIMEOUT_SECONDS
     expression_field: str = DEFAULT_EXPRESSION_FIELD
     reading_field: str = DEFAULT_READING_FIELD
@@ -117,6 +122,7 @@ class AddonConfig:
             "jitenVnCsvUrl": self.jiten_vn_csv_url,
             "yomitanFrequencyIndexUrl": self.yomitan_frequency_index_url,
             "jitenCacheTtlHours": self.jiten_cache_ttl_hours,
+            "yomitanCacheTtlHours": self.yomitan_cache_ttl_hours,
             "jitenRequestTimeoutSeconds": self.jiten_request_timeout_seconds,
             "expressionField": self.expression_field,
             "readingField": self.reading_field,
@@ -171,7 +177,7 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
     )
     jiten_vn_csv_url = _coerce_jiten_vn_csv_url(raw.get("jitenVnCsvUrl"))
     yomitan_frequency_index_url = _coerce_url_string(
-        raw.get("yomitanFrequencyIndexUrl"),
+        raw.get("yomitanFrequencyIndexUrl", DEFAULT_YOMITAN_FREQUENCY_INDEX_URL),
         "yomitanFrequencyIndexUrl",
         errors,
     )
@@ -198,6 +204,12 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         raw.get("jitenCacheTtlHours"),
         DEFAULT_JITEN_CACHE_TTL_HOURS,
         "jitenCacheTtlHours",
+        errors,
+    )
+    yomitan_cache_ttl_hours = _coerce_positive_int(
+        raw.get("yomitanCacheTtlHours"),
+        DEFAULT_YOMITAN_CACHE_TTL_HOURS,
+        "yomitanCacheTtlHours",
         errors,
     )
     request_timeout_seconds = _coerce_positive_int(
@@ -284,6 +296,7 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         jiten_vn_csv_url=jiten_vn_csv_url,
         yomitan_frequency_index_url=yomitan_frequency_index_url,
         jiten_cache_ttl_hours=cache_ttl_hours,
+        yomitan_cache_ttl_hours=yomitan_cache_ttl_hours,
         jiten_request_timeout_seconds=request_timeout_seconds,
         expression_field=expression_field,
         reading_field=reading_field,

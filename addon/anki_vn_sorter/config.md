@@ -98,7 +98,8 @@ Network settings:
   Leave it as `""` unless you want to bypass the built-in Jiten list selector.
 
 - `yomitanFrequencyIndexUrl`
-  Optional Yomitan frequency dictionary index or ZIP URL.
+  Yomitan frequency dictionary index or ZIP URL.
+  The default is Bee's updateable frequency dictionary from Character Dictionary.
   Leave it as `""` to use the selected Jiten list.
   When set, Yomitan is tried first and Jiten remains the fallback if refresh fails.
   You can set or clear this from:
@@ -115,11 +116,25 @@ Network settings:
   How long the cached Jiten CSV is considered fresh before the add-on tries to
   refresh it again.
 
-- `jitenRequestTimeoutSeconds`
-  Network timeout for Jiten requests.
+- `yomitanCacheTtlHours`
+  How long the cached Yomitan frequency dictionary is considered fresh before
+  the add-on tries to refresh it again.
+  The default is `168`, so Bee's Yomitan dictionary updates weekly.
 
-The add-on also ships with a bundled Jiten Global CSV snapshot.
-Load order is:
+- `jitenRequestTimeoutSeconds`
+  Network timeout for Jiten and Yomitan requests.
+
+The add-on also ships with a bundled Bee Yomitan snapshot and a bundled Jiten
+Global CSV snapshot.
+Yomitan load order is:
+
+- fresh user cache
+- live Yomitan download
+- stale user cache
+- bundled Bee snapshot
+- selected Jiten source
+
+Jiten load order is:
 
 - fresh user cache
 - live Jiten download

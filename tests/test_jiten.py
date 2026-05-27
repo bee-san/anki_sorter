@@ -64,6 +64,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
             try:
                 lookup = load_frequency_lookup(
                     AddonConfig(
+                        yomitan_frequency_index_url="",
                         jiten_vn_csv_url="https://example.invalid/visual-novel.csv",
                         jiten_cache_ttl_hours=24,
                     ),
@@ -97,6 +98,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
             try:
                 lookup = load_frequency_lookup(
                     AddonConfig(
+                        yomitan_frequency_index_url="",
                         jiten_vn_csv_url="https://example.invalid/visual-novel.csv",
                     ),
                     opener=lambda url, timeout: "<html>error</html>",
@@ -120,6 +122,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
             try:
                 lookup = refresh_frequency_lookup(
                     AddonConfig(
+                        yomitan_frequency_index_url="",
                         jiten_vn_csv_url="https://example.invalid/visual-novel.csv",
                     ),
                     opener=lambda url, timeout: "expression,rank\n既読,3\n",
@@ -146,6 +149,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
             try:
                 lookup = load_frequency_lookup(
                     AddonConfig(
+                        yomitan_frequency_index_url="",
                         jiten_frequency_list_id="visual_novel",
                         jiten_vn_csv_url="https://example.invalid/visual-novel.csv",
                         jiten_cache_ttl_hours=24,
@@ -180,6 +184,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
                 timeout_seconds: int,
                 cache_ttl_hours: int,
                 opener=None,
+                bundled_zip_path=None,
                 *,
                 force_refresh: bool = False,
             ) -> YomitanLoadResult:
@@ -212,6 +217,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
                         yomitan_frequency_index_url=" https://example.test/index.json ",
                         jiten_request_timeout_seconds=7,
                         jiten_cache_ttl_hours=11,
+                        yomitan_cache_ttl_hours=77,
                     ),
                     opener=lambda url, timeout: self.fail("Jiten CSV should not be fetched"),
                 )
@@ -225,7 +231,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
             self.assertEqual(lookup.warnings, ("from loader",))
             self.assertEqual(
                 calls,
-                [("https://example.test/index.json", user_dir, 7, 11, False)],
+                [("https://example.test/index.json", user_dir, 7, 77, False)],
             )
 
     def test_refresh_forwards_force_refresh_to_yomitan_source(self) -> None:
@@ -239,6 +245,7 @@ class ParseFrequencyCsvTests(unittest.TestCase):
                 timeout_seconds: int,
                 cache_ttl_hours: int,
                 opener=None,
+                bundled_zip_path=None,
                 *,
                 force_refresh: bool = False,
             ) -> YomitanLoadResult:

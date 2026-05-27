@@ -19,6 +19,7 @@ class PackageAddonTests(unittest.TestCase):
 
             (addon_root / "addon.py").write_text("# addon\n", encoding="utf-8")
             (addon_root / "config.json").write_text("{}\n", encoding="utf-8")
+            (addon_root / "meta.json").write_text("{}", encoding="utf-8")
 
             user_files_dir = addon_root / "user_files"
             user_files_dir.mkdir()

@@ -17,6 +17,8 @@ from anki_vn_sorter.config import (
     DEFAULT_TIER_ORDER,
     DEFAULT_UNKNOWN_KANJI_PENALTY_CAP,
     DEFAULT_UNKNOWN_KANJI_PENALTY_STEP,
+    DEFAULT_YOMITAN_CACHE_TTL_HOURS,
+    DEFAULT_YOMITAN_FREQUENCY_INDEX_URL,
     LEGACY_DEFAULT_TIER_ORDER,
     STRATEGY_BALANCED_EASE_V1,
     STRATEGY_EASY_FIRST_TIERED_V1,
@@ -122,6 +124,20 @@ class ConfigTests(unittest.TestCase):
         config = parse_config({"yomitanFrequencyIndexUrl": url})
         self.assertEqual(config.yomitan_frequency_index_url, url)
         self.assertEqual(config.to_dict()["yomitanFrequencyIndexUrl"], url)
+
+    def test_default_yomitan_frequency_source_is_bee_dictionary(self) -> None:
+        config = parse_config({})
+        self.assertEqual(
+            config.yomitan_frequency_index_url,
+            DEFAULT_YOMITAN_FREQUENCY_INDEX_URL,
+        )
+        self.assertEqual(config.yomitan_cache_ttl_hours, DEFAULT_YOMITAN_CACHE_TTL_HOURS)
+        self.assertEqual(config.to_dict()["yomitanCacheTtlHours"], 168)
+
+    def test_yomitan_cache_ttl_round_trip(self) -> None:
+        config = parse_config({"yomitanCacheTtlHours": 336})
+        self.assertEqual(config.yomitan_cache_ttl_hours, 336)
+        self.assertEqual(config.to_dict()["yomitanCacheTtlHours"], 336)
 
     def test_yomitan_frequency_index_url_rejects_file_url(self) -> None:
         with self.assertRaises(ConfigValidationError):

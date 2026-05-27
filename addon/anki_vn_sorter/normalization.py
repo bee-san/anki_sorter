@@ -32,4 +32,7 @@ def strip_html_text(text: str) -> str:
         from anki.utils import strip_html
     except ModuleNotFoundError:
         return HTML_RE.sub("", text or "")
-    return strip_html(text or "")
+    try:
+        return strip_html(text or "")
+    except AttributeError:
+        return HTML_RE.sub("", text or "")

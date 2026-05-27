@@ -12,7 +12,7 @@ from typing import Callable
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
-from .config import AddonConfig
+from .config import AddonConfig, DEFAULT_YOMITAN_FREQUENCY_INDEX_URL
 from .jiten_lists import get_frequency_list_definition
 from .normalization import normalize_lookup_text
 from .state import addon_dir, ensure_user_files_dir
@@ -20,6 +20,7 @@ from .yomitan_frequency import YomitanLoadError, load_yomitan_frequency_lookup
 
 CSV_HREF_RE = re.compile(r'href="([^"]+csv[^"]*)"', re.IGNORECASE)
 QUOTED_CSV_RE = re.compile(r'["\']([^"\']+csv[^"\']*)["\']', re.IGNORECASE)
+BUNDLED_BEE_YOMITAN_FREQUENCY_NAME = "bee_frequency.zip"
 
 EXPRESSION_HEADERS = (
     "expression",
@@ -76,7 +77,8 @@ def load_frequency_lookup(
                 yomitan_index_url,
                 user_dir,
                 config.jiten_request_timeout_seconds,
-                config.jiten_cache_ttl_hours,
+                config.yomitan_cache_ttl_hours,
+                bundled_zip_path=_bundled_yomitan_frequency_path(yomitan_index_url),
                 force_refresh=force_refresh,
             )
             return FrequencyLookup(
@@ -169,6 +171,8 @@ def refresh_frequency_lookup(
 def _yomitan_source_kind(source_kind: str) -> str:
     if source_kind == "cache":
         return "yomitan_cache"
+    if source_kind == "bundled":
+        return "yomitan_bundled"
     return "yomitan"
 
 
@@ -197,6 +201,13 @@ def bundled_frequency_path(list_id: str) -> Path | None:
     if not frequency_list.bundled_snapshot_name:
         return None
     return addon_dir() / "data" / frequency_list.bundled_snapshot_name
+
+
+def _bundled_yomitan_frequency_path(index_url: str) -> Path | None:
+    if index_url != DEFAULT_YOMITAN_FREQUENCY_INDEX_URL:
+        return None
+    path = addon_dir() / "data" / BUNDLED_BEE_YOMITAN_FREQUENCY_NAME
+    return path if path.exists() else None
 
 
 def parse_frequency_csv(csv_text: str) -> dict[str, float]:
