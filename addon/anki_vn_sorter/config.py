@@ -10,8 +10,8 @@ from .jiten_lists import (
     frequency_list_ids,
 )
 
-DEFAULT_MODEL_NAMES = ("Kiku",)
-DEFAULT_SCOPE_QUERY = "note:Kiku is:new -is:suspended"
+DEFAULT_MODEL_NAMES = ("Kiku", "Lapis")
+DEFAULT_SCOPE_QUERY = '(note:"Kiku" or note:"Lapis") is:new -is:suspended'
 LEGACY_DEFAULT_MATURE_QUERY = "note:Kiku prop:ivl>=21 -is:suspended"
 DEFAULT_MATURE_QUERY = ""
 DEFAULT_MATURE_DAYS = 21

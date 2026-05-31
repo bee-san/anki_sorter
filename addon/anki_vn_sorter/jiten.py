@@ -151,7 +151,7 @@ def load_frequency_lookup(
 
     warnings.append(
         f"Jiten {frequency_list.label} CSV is unavailable; "
-        "falling back to Kiku FreqSort only."
+        "falling back to the configured FreqSort field only."
     )
     return FrequencyLookup(
         ranks={},

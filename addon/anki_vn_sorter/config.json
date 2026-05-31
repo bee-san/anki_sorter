@@ -1,8 +1,9 @@
 {
   "modelNames": [
-    "Kiku"
+    "Kiku",
+    "Lapis"
   ],
-  "scopeQuery": "note:Kiku is:new -is:suspended",
+  "scopeQuery": "(note:\"Kiku\" or note:\"Lapis\") is:new -is:suspended",
   "matureQuery": "",
   "matureDays": 21,
   "httpPort": 8767,

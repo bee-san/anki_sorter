@@ -152,6 +152,8 @@ class UiYomitanMenuTests(unittest.TestCase):
         menu = self.mw.form.menuTools.menus[-1]
         labels = [action.text for action in menu.actions]
 
+        self.assertIn("Sort VN Cards Now", labels)
+        self.assertNotIn("Sort Kiku VN Cards Now", labels)
         self.assertIn("Set Yomitan Frequency Dictionary URL...", labels)
         self.assertIn("Clear Yomitan Frequency Dictionary URL", labels)
         self.assertIn("Refresh Current Frequency Source Now", labels)

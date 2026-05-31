@@ -13,7 +13,9 @@ from anki_vn_sorter.config import (
     ConfigValidationError,
     DEFAULT_JITEN_VN_CSV_URL,
     DEFAULT_KANA_ONLY_MULTIPLIER,
+    DEFAULT_MODEL_NAMES,
     DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS,
+    DEFAULT_SCOPE_QUERY,
     DEFAULT_TIER_ORDER,
     DEFAULT_UNKNOWN_KANJI_PENALTY_CAP,
     DEFAULT_UNKNOWN_KANJI_PENALTY_STEP,
@@ -35,6 +37,20 @@ from anki_vn_sorter.jiten_lists import (
 
 
 class ConfigTests(unittest.TestCase):
+    def test_defaults_support_kiku_and_lapis_sentence_cards(self) -> None:
+        config = parse_config({})
+        self.assertEqual(config.model_names, DEFAULT_MODEL_NAMES)
+        self.assertEqual(config.model_names, ("Kiku", "Lapis"))
+        self.assertEqual(config.scope_query, DEFAULT_SCOPE_QUERY)
+        self.assertEqual(
+            config.scope_query,
+            '(note:"Kiku" or note:"Lapis") is:new -is:suspended',
+        )
+        self.assertEqual(
+            config.effective_mature_query,
+            '(note:"Kiku" or note:"Lapis") prop:ivl>=21 -is:suspended',
+        )
+
     def test_blank_mature_query_uses_mature_days(self) -> None:
         config = parse_config(
             {
