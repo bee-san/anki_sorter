@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to package and publish'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: release_tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag || '' }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          tag="${INPUT_TAG:-}"
+          if [ -z "$tag" ]; then
+            tag="$GITHUB_REF_NAME"
+          fi
+          case "$tag" in
+            v*) ;;
+            *) echo "Release tag must start with v, got: $tag" >&2; exit 1 ;;
+          esac
+          git rev-parse "$tag^{commit}" >/dev/null
+          git checkout --detach "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Compile Python files
+        run: python -m compileall addon scripts tests
+
+      - name: Build add-on package
+        run: python scripts/package_addon.py
+
+      - name: Inspect package contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          package = Path('dist/anki_vn_sorter.ankiaddon')
+          required = {
+              '__init__.py',
+              'addon.py',
+              'config.json',
+              'config.md',
+              'manifest.json',
+              'data/ATTRIBUTION.md',
+          }
+          forbidden_suffixes = ('.pyc', '.pyo')
+
+          if not package.exists():
+              raise SystemExit('dist/anki_vn_sorter.ankiaddon was not created')
+
+          with ZipFile(package) as archive:
+              names = set(archive.namelist())
+              missing = sorted(required - names)
+              forbidden = sorted(
+                  name for name in names
+                  if '__pycache__' in name
+                  or name.endswith(forbidden_suffixes)
+                  or name.startswith('user_files/')
+              )
+
+          print(f'package={package} size={package.stat().st_size} bytes files={len(names)}')
+          if missing:
+              print('missing required files:', ', '.join(missing))
+          if forbidden:
+              print('forbidden packaged files:', ', '.join(forbidden))
+          raise SystemExit(1 if missing or forbidden else 0)
+          PY
+
+      - name: Write release notes
+        run: |
+          set -euo pipefail
+          sha256sum dist/anki_vn_sorter.ankiaddon > dist/anki_vn_sorter.ankiaddon.sha256
+          checksum="$(cut -d' ' -f1 dist/anki_vn_sorter.ankiaddon.sha256)"
+          cat > release-notes.md <<EOF
+          Built by GitHub Actions from tag ${{ steps.release_tag.outputs.tag }}.
+
+          Install anki_vn_sorter.ankiaddon from the release assets.
+
+          SHA-256:
+          $checksum  anki_vn_sorter.ankiaddon
+          EOF
+
+      - name: Publish GitHub release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              dist/anki_vn_sorter.ankiaddon \
+              dist/anki_vn_sorter.ankiaddon.sha256 \
+              --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              dist/anki_vn_sorter.ankiaddon \
+              dist/anki_vn_sorter.ankiaddon.sha256 \
+              --verify-tag \
+              --title "Anki VN Sorter $RELEASE_TAG" \
+              --notes-file release-notes.md
+          fi
