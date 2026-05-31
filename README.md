@@ -11,7 +11,8 @@
 
 <p align="center">
   <a href="#install"><img alt="Install" src="https://img.shields.io/badge/install-.ankiaddon-6366F1"></a>
-  <a href="#development"><img alt="Tests" src="https://img.shields.io/badge/tests-unittest-22C55E"></a>
+  <a href="https://github.com/bee-san/anki_sorter/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bee-san/anki_sorter/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/bee-san/anki_sorter/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/bee-san/anki_sorter?label=release&color=10B981"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-3776AB">
   <img alt="Frequency" src="https://img.shields.io/badge/frequency-Jiten%20%2B%20Yomitan-F59E0B">
   <img alt="Anki" src="https://img.shields.io/badge/Anki-add--on-2563EB">
@@ -20,6 +21,7 @@
 <p align="center">
   <a href="#why">Why</a> ·
   <a href="#install">Install</a> ·
+  <a href="https://github.com/bee-san/anki_sorter/releases/latest">Releases</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-sorts">How it sorts</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -56,18 +58,17 @@ The default setup targets **Kiku** and **Lapis**-style Japanese sentence cards. 
 
 ## Install
 
-Build the add-on package:
+Install the packaged add-on from the latest GitHub Release:
 
-```bash
-python3 scripts/package_addon.py
-```
+1. Download `anki_vn_sorter.ankiaddon` from [the latest release](https://github.com/bee-san/anki_sorter/releases/latest).
+   - Direct download: [`anki_vn_sorter.ankiaddon`](https://github.com/bee-san/anki_sorter/releases/latest/download/anki_vn_sorter.ankiaddon)
+   - Do not install GitHub's source-code ZIP; use the `.ankiaddon` asset.
+2. Open Anki Desktop.
+3. Go to `Tools -> Add-ons -> Install from file...`.
+4. Select the downloaded `anki_vn_sorter.ankiaddon`.
+5. Restart Anki.
 
-Then install:
-
-1. Open Anki Desktop.
-2. Go to `Tools -> Add-ons -> Install from file...`.
-3. Select `dist/anki_vn_sorter.ankiaddon`.
-4. Restart Anki.
+Release packages are built by GitHub Actions. Pull requests and pushes to `main` also build the `.ankiaddon` as a CI artifact.
 
 For development, link the source folder into Anki's add-on directory:
 

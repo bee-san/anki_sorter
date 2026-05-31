@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - '3.10'
+          - '3.11'
+          - '3.12'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Compile Python files
+        run: python -m compileall addon scripts tests
+
+  package:
+    name: Build .ankiaddon package
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build add-on package
+        run: python scripts/package_addon.py
+
+      - name: Inspect package contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          package = Path('dist/anki_vn_sorter.ankiaddon')
+          required = {
+              '__init__.py',
+              'addon.py',
+              'config.json',
+              'config.md',
+              'manifest.json',
+              'data/ATTRIBUTION.md',
+          }
+          forbidden_suffixes = ('.pyc', '.pyo')
+
+          if not package.exists():
+              raise SystemExit('dist/anki_vn_sorter.ankiaddon was not created')
+
+          with ZipFile(package) as archive:
+              names = set(archive.namelist())
+              missing = sorted(required - names)
+              forbidden = sorted(
+                  name for name in names
+                  if '__pycache__' in name
+                  or name.endswith(forbidden_suffixes)
+                  or name.startswith('user_files/')
+              )
+
+          print(f'package={package} size={package.stat().st_size} bytes files={len(names)}')
+          if missing:
+              print('missing required files:', ', '.join(missing))
+          if forbidden:
+              print('forbidden packaged files:', ', '.join(forbidden))
+          raise SystemExit(1 if missing or forbidden else 0)
+          PY
+
+      - name: Upload add-on artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: anki_vn_sorter.ankiaddon
+          path: dist/anki_vn_sorter.ankiaddon
+          if-no-files-found: error
