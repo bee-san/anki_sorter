@@ -8,8 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
 import anki_sorter.sorter as sorter
-from anki_sorter.config import AddonConfig
+from anki_sorter.config import (
+    AUTO_SORT_MODE_AFTER_SYNC,
+    SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO,
+    AddonConfig,
+)
 from anki_sorter.jiten import FrequencyLookup
+from anki_sorter.safety import SORT_TRIGGER_AFTER_SYNC, SORT_TRIGGER_API, SORT_TRIGGER_MANUAL
 from anki_sorter.sorter import _deck_option_warnings
 from anki_sorter.state import SorterState
 
@@ -240,6 +245,152 @@ class SorterRankSourceTests(unittest.TestCase):
 
         self.assertEqual(summary["candidateCount"], 1)
         self.assertEqual(summary["topPreview"][0]["rankSource"], "yomitan")
+
+    def test_review_cards_are_still_excluded_from_sort_candidates(self) -> None:
+        sorter.load_frequency_lookup = lambda _config: FrequencyLookup(
+            ranks={"漢字": 1.0},
+            source_url="https://example.test/index.json",
+            warnings=(),
+            source_kind="yomitan",
+        )
+        review_card = _FakeSortCard(1, 10, 1, "漢字", "99")
+        review_card.type = 2
+        col = _FakeSortCollection([review_card])
+
+        summary = sorter.run_sort_on_collection(col, AddonConfig(), "test", force=True)
+
+        self.assertEqual(summary["candidateCount"], 0)
+        self.assertIsNone(col.sched.repositioned_card_ids)
+
+
+class SorterSyncSafetyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._original_load_frequency_lookup = sorter.load_frequency_lookup
+        self._original_load_state = sorter.load_state
+        self._original_save_state = sorter.save_state
+        sorter.load_state = lambda: SorterState()
+        self.saved_states: list[SorterState] = []
+        sorter.save_state = self.saved_states.append
+
+    def tearDown(self) -> None:
+        sorter.load_frequency_lookup = self._original_load_frequency_lookup
+        sorter.load_state = self._original_load_state
+        sorter.save_state = self._original_save_state
+
+    def _sorting_collection(self) -> _FakeSortCollection:
+        return _FakeSortCollection(
+            [
+                _FakeSortCard(1, 10, 1, "低頻度", "99"),
+                _FakeSortCard(2, 20, 2, "高頻度", "1"),
+            ]
+        )
+
+    def _lookup_that_reorders(self) -> FrequencyLookup:
+        return FrequencyLookup(
+            ranks={"高頻度": 1.0, "低頻度": 99.0},
+            source_url="https://example.test/index.json",
+            warnings=(),
+            source_kind="yomitan",
+        )
+
+    def test_mobile_guarded_after_sync_skips_before_lookup_reposition_and_state_write(self) -> None:
+        def fail_if_called(_config: AddonConfig) -> FrequencyLookup:
+            raise AssertionError("load_frequency_lookup should not be called for guarded after_sync")
+
+        sorter.load_frequency_lookup = fail_if_called
+        col = self._sorting_collection()
+
+        summary = sorter.run_sort_on_collection(
+            col,
+            AddonConfig(auto_sort_mode=AUTO_SORT_MODE_AFTER_SYNC),
+            "test",
+            trigger=SORT_TRIGGER_AFTER_SYNC,
+        )
+
+        self.assertFalse(summary["applied"])
+        self.assertTrue(summary["skippedForSyncSafety"])
+        self.assertEqual(summary["skipReason"], "mobile_guarded blocks automatic sorting after sync/profile open")
+        self.assertEqual(summary["trigger"], SORT_TRIGGER_AFTER_SYNC)
+        self.assertIsNone(col.sched.repositioned_card_ids)
+        self.assertEqual(self.saved_states, [])
+
+    def test_unacknowledged_api_skips_before_lookup_reposition_and_state_write(self) -> None:
+        def fail_if_called(_config: AddonConfig) -> FrequencyLookup:
+            raise AssertionError("load_frequency_lookup should not be called for unacknowledged API")
+
+        sorter.load_frequency_lookup = fail_if_called
+        col = self._sorting_collection()
+
+        summary = sorter.run_sort_on_collection(
+            col,
+            AddonConfig(),
+            "test",
+            trigger=SORT_TRIGGER_API,
+            acknowledged=False,
+        )
+
+        self.assertFalse(summary["applied"])
+        self.assertTrue(summary["skippedForSyncSafety"])
+        self.assertEqual(summary["skipReason"], "manual/API sort request requires acknowledgement")
+        self.assertEqual(summary["trigger"], SORT_TRIGGER_API)
+        self.assertIsNone(col.sched.repositioned_card_ids)
+        self.assertEqual(self.saved_states, [])
+
+    def test_acknowledged_manual_trigger_still_sorts_and_persists(self) -> None:
+        sorter.load_frequency_lookup = lambda _config: self._lookup_that_reorders()
+        col = self._sorting_collection()
+
+        summary = sorter.run_sort_on_collection(
+            col,
+            AddonConfig(),
+            "test",
+            force=True,
+            trigger=SORT_TRIGGER_MANUAL,
+            acknowledged=True,
+        )
+
+        self.assertTrue(summary["applied"])
+        self.assertFalse(summary["skippedForSyncSafety"])
+        self.assertEqual(summary["trigger"], SORT_TRIGGER_MANUAL)
+        self.assertEqual(col.sched.repositioned_card_ids, [2, 1])
+        self.assertEqual(len(self.saved_states), 1)
+
+    def test_acknowledged_api_trigger_still_sorts(self) -> None:
+        sorter.load_frequency_lookup = lambda _config: self._lookup_that_reorders()
+        col = self._sorting_collection()
+
+        summary = sorter.run_sort_on_collection(
+            col,
+            AddonConfig(),
+            "test",
+            force=True,
+            trigger=SORT_TRIGGER_API,
+            acknowledged=True,
+        )
+
+        self.assertTrue(summary["applied"])
+        self.assertFalse(summary["skippedForSyncSafety"])
+        self.assertEqual(summary["trigger"], SORT_TRIGGER_API)
+        self.assertEqual(col.sched.repositioned_card_ids, [2, 1])
+
+    def test_desktop_only_allow_auto_after_sync_still_sorts(self) -> None:
+        sorter.load_frequency_lookup = lambda _config: self._lookup_that_reorders()
+        col = self._sorting_collection()
+
+        summary = sorter.run_sort_on_collection(
+            col,
+            AddonConfig(
+                auto_sort_mode=AUTO_SORT_MODE_AFTER_SYNC,
+                sync_safety_mode=SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO,
+            ),
+            "test",
+            trigger=SORT_TRIGGER_AFTER_SYNC,
+        )
+
+        self.assertTrue(summary["applied"])
+        self.assertFalse(summary["skippedForSyncSafety"])
+        self.assertEqual(summary["trigger"], SORT_TRIGGER_AFTER_SYNC)
+        self.assertEqual(col.sched.repositioned_card_ids, [2, 1])
 
 
 if __name__ == "__main__":

@@ -23,7 +23,10 @@ DEFAULT_STRATEGY = STRATEGY_FREQUENCY_FIRST_SOFT_V1
 AUTO_SORT_MODE_MANUAL_ONLY = "manual_only"
 AUTO_SORT_MODE_AFTER_SYNC = "after_sync"
 AUTO_SORT_MODE_PROFILE_OPEN = "profile_open"
-DEFAULT_AUTO_SORT_MODE = AUTO_SORT_MODE_AFTER_SYNC
+DEFAULT_AUTO_SORT_MODE = AUTO_SORT_MODE_MANUAL_ONLY
+SYNC_SAFETY_MODE_MOBILE_GUARDED = "mobile_guarded"
+SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO = "desktop_only_allow_auto"
+DEFAULT_SYNC_SAFETY_MODE = SYNC_SAFETY_MODE_MOBILE_GUARDED
 DEFAULT_JITEN_DISCOVERY_URL = "https://jiten.moe/other"
 DEFAULT_JITEN_FREQUENCY_LIST = DEFAULT_JITEN_FREQUENCY_LIST_ID
 DEFAULT_JITEN_VN_CSV_URL = ""
@@ -73,6 +76,10 @@ VALID_AUTO_SORT_MODES = {
     AUTO_SORT_MODE_AFTER_SYNC,
     AUTO_SORT_MODE_PROFILE_OPEN,
 }
+VALID_SYNC_SAFETY_MODES = {
+    SYNC_SAFETY_MODE_MOBILE_GUARDED,
+    SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO,
+}
 
 
 class ConfigValidationError(ValueError):
@@ -90,6 +97,7 @@ class AddonConfig:
     http_port: int = DEFAULT_HTTP_PORT
     strategy: str = DEFAULT_STRATEGY
     auto_sort_mode: str = DEFAULT_AUTO_SORT_MODE
+    sync_safety_mode: str = DEFAULT_SYNC_SAFETY_MODE
     jiten_discovery_url: str = DEFAULT_JITEN_DISCOVERY_URL
     jiten_frequency_list_id: str = DEFAULT_JITEN_FREQUENCY_LIST
     jiten_vn_csv_url: str = DEFAULT_JITEN_VN_CSV_URL
@@ -117,6 +125,7 @@ class AddonConfig:
             "httpPort": self.http_port,
             "strategy": self.strategy,
             "autoSortMode": self.auto_sort_mode,
+            "syncSafetyMode": self.sync_safety_mode,
             "jitenDiscoveryUrl": self.jiten_discovery_url,
             "jitenFrequencyListId": self.jiten_frequency_list_id,
             "jitenVnCsvUrl": self.jiten_vn_csv_url,
@@ -169,6 +178,9 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
     mature_query = _coerce_mature_query(raw.get("matureQuery"), model_names)
     strategy = _coerce_strategy(raw)
     auto_sort_mode = _clean_string(raw.get("autoSortMode"), DEFAULT_AUTO_SORT_MODE)
+    sync_safety_mode = _clean_string(
+        raw.get("syncSafetyMode"), DEFAULT_SYNC_SAFETY_MODE
+    )
     jiten_discovery_url = _clean_string(
         raw.get("jitenDiscoveryUrl"), DEFAULT_JITEN_DISCOVERY_URL
     )
@@ -273,6 +285,12 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
             + ", ".join(sorted(VALID_AUTO_SORT_MODES))
             + "."
         )
+    if sync_safety_mode not in VALID_SYNC_SAFETY_MODES:
+        errors.append(
+            "syncSafetyMode must be one of: "
+            + ", ".join(sorted(VALID_SYNC_SAFETY_MODES))
+            + "."
+        )
     if not expression_field:
         errors.append("expressionField must be a non-empty string.")
     if not reading_field:
@@ -291,6 +309,7 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         http_port=http_port,
         strategy=strategy,
         auto_sort_mode=auto_sort_mode,
+        sync_safety_mode=sync_safety_mode,
         jiten_discovery_url=jiten_discovery_url,
         jiten_frequency_list_id=jiten_frequency_list_id,
         jiten_vn_csv_url=jiten_vn_csv_url,

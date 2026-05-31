@@ -52,7 +52,7 @@ The default setup targets **Kiku** and **Lapis**-style Japanese sentence cards. 
 - **Kiku + Lapis defaults** — ships with sensible defaults for common Japanese sentence-card setups.
 - **Safe scope** — only eligible new cards are repositioned; reviews, learning cards, and suspended cards are left alone.
 - **Offline fallback** — uses cached/bundled data when the network is unavailable.
-- **Desktop automation** — can run after Anki sync, which is safer for AnkiDroid workflows.
+- **Desktop-safe defaults** — starts in manual mode with mobile sync guardrails for AnkiDroid workflows.
 - **Manual controls** — sort, refresh, and switch frequency sources from Anki's Tools menu.
 - **Local API** — exposes `GET /health` and `POST /sort` for scripts and optional timers.
 
@@ -97,15 +97,54 @@ On Windows, place or link `addon/anki_sorter` under `%APPDATA%\Anki2\addons21\an
 4. Run `Tools -> Anki Sorter -> Sort Cards Now`.
 5. Optional: run `Tools -> Anki Sorter -> Refresh Current Frequency Source Now`.
 
-The default automation mode is:
+The default automation mode is intentionally manual-only:
 
 ```json
 {
-  "autoSortMode": "after_sync"
+  "autoSortMode": "manual_only",
+  "syncSafetyMode": "mobile_guarded"
 }
 ```
 
-That means Anki Desktop reorders new cards after sync completes. If you also study on AnkiDroid, this avoids racing mobile changes.
+That means Anki Desktop does not automatically reorder after sync/profile open. This is intentional: Anki Desktop cannot detect offline AnkiDroid reviews that have not synced yet.
+
+If you review on AnkiDroid, use this manual safe sequence before sorting:
+
+1. Sync AnkiDroid and wait for it to finish.
+2. Sync Anki Desktop and resolve any sync prompts.
+3. Run `Tools -> Anki Sorter -> Sort Cards Now`.
+4. Sync Anki Desktop again before reviewing on another device.
+
+Use `desktop_only_allow_auto` only for profiles where desktop-only automatic sorting is an intentional opt-in and no phone or tablet can have unsynced reviews.
+
+## AnkiDroid sync safety
+
+Anki Sorter repositions new cards on Anki Desktop. That can be safe only after all review devices have already pushed their latest state and Desktop has pulled it. A desktop add-on cannot inspect your phone for offline AnkiDroid reviews, so `after_sync` on Desktop is not a proof that the phone is current.
+
+The safe default is:
+
+```json
+{
+  "autoSortMode": "manual_only",
+  "syncSafetyMode": "mobile_guarded"
+}
+```
+
+Only opt into desktop automation with both of these settings when the profile is genuinely desktop-only:
+
+```json
+{
+  "autoSortMode": "after_sync",
+  "syncSafetyMode": "desktop_only_allow_auto"
+}
+```
+
+AnkiDroid can help keep the phone synced, but this is hygiene rather than a correctness guarantee for desktop sorting:
+
+- Native AnkiDroid setting: the manual says **Automatic synchronization** syncs "every time you open and close the app" and is limited to "once every ten minutes". It is not a time-of-day scheduler. Source: [AnkiDroid manual, Preferences -> AnkiDroid -> Automatic synchronization](https://docs.ankidroid.org/manual.html#settings).
+- Tasker / Automate: the AnkiDroid API documents an experimental sync intent, `Action:com.ichi2.anki.DO_SYNC`, and warns that a "server is busy" error is shown if sync is attempted "more often than once every 5 minutes". It also says the target must be `Activity`, and links Tasker and Automate examples. Source: [AnkiDroid API, Sync Intent](https://github.com/ankidroid/Anki-Android/wiki/AnkiDroid-API#sync-intent).
+
+Even with native auto-sync, Tasker, or Automate enabled, keep the manual safe sequence above when using Anki Sorter on a collection also reviewed on AnkiDroid.
 
 ## How it sorts
 
@@ -143,7 +182,8 @@ Recommended default core settings:
   "expressionField": "Expression",
   "freqSortField": "FreqSort",
   "strategy": "frequency_first_soft_v1",
-  "autoSortMode": "after_sync"
+  "autoSortMode": "manual_only",
+  "syncSafetyMode": "mobile_guarded"
 }
 ```
 
@@ -166,6 +206,7 @@ Important settings:
 | `expressionField` | Field containing the Japanese expression. |
 | `freqSortField` | Optional deck-provided frequency fallback. |
 | `autoSortMode` | `after_sync`, `profile_open`, or `manual_only`. |
+| `syncSafetyMode` | `mobile_guarded` by default; `desktop_only_allow_auto` opt-in for automation. |
 | `jitenFrequencyListId` | Built-in Jiten list: `global`, `visual_novel`, `novel`, `anime`, etc. |
 | `yomitanFrequencyIndexUrl` | Optional Yomitan frequency dictionary URL. |
 
@@ -210,7 +251,7 @@ For the sorted order to show reliably, deck options should preserve gathered ord
 
 ## Optional systemd timer
 
-The default `after_sync` mode is best for most desktop + AnkiDroid workflows. If you still want a timer, templates live in `systemd/`:
+The default `manual_only` mode is safest for desktop + AnkiDroid workflows. If you still want a timer, templates live in `systemd/`:
 
 ```bash
 mkdir -p ~/.config/systemd/user

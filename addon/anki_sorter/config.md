@@ -38,9 +38,67 @@ Main settings:
   - `manual_only`
 
   Recommended default:
-  - `after_sync`
+  - `manual_only`
 
-  This is the safest mode if you also study on AnkiDroid, because the reorder happens after desktop sync, not before it.
+  Manual-only sorting avoids automatic desktop reorders racing mobile sync state.
+  Anki Desktop cannot detect offline AnkiDroid reviews that have not synced yet,
+  so desktop `after_sync` is not inherently safe for profiles also reviewed on
+  AnkiDroid.
+
+- `syncSafetyMode`
+  Additional guard for sync-adjacent automation.
+  Valid values:
+  - `mobile_guarded`
+  - `desktop_only_allow_auto`
+
+  Recommended default:
+  - `mobile_guarded`
+
+  `mobile_guarded` blocks sync-adjacent automatic sorting unless you manually
+  confirm all devices are synced. Use `desktop_only_allow_auto` only for profiles
+  where desktop-only automatic sorting is an intentional opt-in and no phone or
+  tablet can have unsynced reviews.
+
+AnkiDroid sync safety:
+
+- Safe default:
+
+  ```json
+  {
+    "autoSortMode": "manual_only",
+    "syncSafetyMode": "mobile_guarded"
+  }
+  ```
+
+- Manual safe sequence for AnkiDroid users:
+  1. Sync AnkiDroid and wait for it to finish.
+  2. Sync Anki Desktop and resolve any sync prompts.
+  3. Sort with `Tools -> Anki Sorter -> Sort Cards Now`.
+  4. Sync Anki Desktop again before studying elsewhere.
+
+- Desktop-only automation opt-in:
+
+  ```json
+  {
+    "autoSortMode": "after_sync",
+    "syncSafetyMode": "desktop_only_allow_auto"
+  }
+  ```
+
+  Use this only for desktop-only profiles. Desktop automation cannot prove that
+  AnkiDroid has already uploaded offline reviews.
+
+- Native AnkiDroid auto-sync is useful hygiene, not a sorter safety guarantee.
+  The AnkiDroid manual says **Automatic synchronization** syncs "every time you
+  open and close the app" and is limited to "once every ten minutes"; it is not
+  a time-of-day scheduler. Source: AnkiDroid manual, Preferences -> AnkiDroid ->
+  Automatic synchronization: https://docs.ankidroid.org/manual.html#settings
+
+- Tasker / Automate can trigger AnkiDroid's experimental sync intent. The
+  AnkiDroid API documents `Action:com.ichi2.anki.DO_SYNC`, says attempts more
+  often than "once every 5 minutes" can show a "server is busy" error, and notes
+  the target must be `Activity`. Source: AnkiDroid API, Sync Intent:
+  https://github.com/ankidroid/Anki-Android/wiki/AnkiDroid-API#sync-intent
 
 Ranking settings:
 

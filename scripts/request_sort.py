@@ -43,7 +43,11 @@ def main() -> int:
         return 0
 
     try:
-        response = request_json(f"{base_url}/sort", method="POST", body={})
+        response = request_json(
+            f"{base_url}/sort",
+            method="POST",
+            body=build_sort_request_body(args.assume_all_devices_synced),
+        )
     except HTTPError as error:
         payload = read_error_payload(error)
         print(
@@ -59,6 +63,14 @@ def main() -> int:
     if not isinstance(summary, dict):
         print("Anki Sorter returned an invalid summary payload.", file=sys.stderr)
         return 1
+
+    if summary.get("skippedForSyncSafety"):
+        reason = summary.get("skipReason")
+        if isinstance(reason, str) and reason:
+            print(f"Anki Sorter skipped for sync safety: {reason}")
+        else:
+            print("Anki Sorter skipped for sync safety.")
+        return 0
 
     save_last_success(state_path, profile_name, today)
     candidate_count = summary.get("candidateCount", 0)
@@ -85,7 +97,21 @@ def parse_args() -> argparse.Namespace:
         help="Directory that stores the once-per-day requester state.",
     )
     parser.add_argument("--force", action="store_true", help="Ignore the once-per-day guard.")
+    parser.add_argument(
+        "--assume-all-devices-synced",
+        action="store_true",
+        help=(
+            "Acknowledge that AnkiDroid and any other devices with offline reviews "
+            "have synced before this request, and that this desktop will be synced after sorting."
+        ),
+    )
     return parser.parse_args()
+
+
+def build_sort_request_body(assume_all_devices_synced: bool) -> dict[str, object]:
+    if not assume_all_devices_synced:
+        return {}
+    return {"acknowledgedAllDevicesSynced": True}
 
 
 def request_json(url: str, method: str = "GET", body: dict[str, object] | None = None) -> dict[str, object]:

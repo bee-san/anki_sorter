@@ -8,6 +8,7 @@ from .config import AddonConfig
 from .jiten import FrequencyLookup, load_frequency_lookup
 from .normalization import extract_kanji_chars, strip_html_text
 from .ranking import CardInput, parse_freqsort, score_cards
+from .safety import SORT_TRIGGER_MANUAL, decide_sort_safety
 from .state import ProfileState, load_state, save_state
 
 
@@ -21,6 +22,9 @@ class SortSummary:
     strategy: str
     warnings: tuple[str, ...]
     top_preview: tuple[dict[str, Any], ...]
+    skipped_for_sync_safety: bool = False
+    skip_reason: str | None = None
+    trigger: str = SORT_TRIGGER_MANUAL
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -32,6 +36,9 @@ class SortSummary:
             "strategy": self.strategy,
             "warnings": list(self.warnings),
             "topPreview": list(self.top_preview),
+            "skippedForSyncSafety": self.skipped_for_sync_safety,
+            "skipReason": self.skip_reason,
+            "trigger": self.trigger,
         }
 
 
@@ -51,8 +58,27 @@ def run_sort_on_collection(
     profile_name: str | None,
     *,
     force: bool = False,
+    trigger: str = SORT_TRIGGER_MANUAL,
+    acknowledged: bool = True,
 ) -> dict[str, Any]:
     today = date.today().isoformat()
+    safety_decision = decide_sort_safety(config, trigger, acknowledged=acknowledged)
+    if not safety_decision.allowed:
+        summary = SortSummary(
+            applied=False,
+            already_sorted=False,
+            skipped_for_today=False,
+            candidate_count=0,
+            repositioned_count=0,
+            strategy=config.strategy,
+            warnings=(safety_decision.reason,),
+            top_preview=tuple(),
+            skipped_for_sync_safety=True,
+            skip_reason=safety_decision.reason,
+            trigger=trigger,
+        )
+        return summary.to_dict()
+
     state = load_state()
     profile_state = state.for_profile(profile_name)
     previous_summary = profile_state.last_summary if isinstance(profile_state.last_summary, dict) else {}
@@ -66,6 +92,7 @@ def run_sort_on_collection(
             strategy=config.strategy,
             warnings=("Anki Sorter already completed a run for this profile today.",),
             top_preview=tuple(_top_preview_from_summary(previous_summary)),
+            trigger=trigger,
         )
         return summary.to_dict()
 
@@ -133,6 +160,7 @@ def run_sort_on_collection(
             strategy=config.strategy,
             warnings=tuple(dict.fromkeys(warnings)),
             top_preview=tuple(),
+            trigger=trigger,
         )
         _persist_summary(profile_name, today, summary)
         return summary.to_dict()
@@ -197,6 +225,7 @@ def run_sort_on_collection(
         strategy=config.strategy,
         warnings=tuple(dict.fromkeys(warnings)),
         top_preview=tuple(preview),
+        trigger=trigger,
     )
     _persist_summary(profile_name, today, summary)
     return summary.to_dict()
