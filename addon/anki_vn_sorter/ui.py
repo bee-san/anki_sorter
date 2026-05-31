@@ -20,7 +20,7 @@ from .server import _profile_name
 from .sorter import run_sort_on_collection
 
 TOOLS_MENU_TITLE = "Anki VN Sorter"
-RUN_ACTION_LABEL = "Sort Kiku VN Cards Now"
+RUN_ACTION_LABEL = "Sort VN Cards Now"
 CHOOSE_FREQUENCY_LIST_ACTION_LABEL = "Choose Jiten Frequency List..."
 SET_YOMITAN_FREQUENCY_URL_ACTION_LABEL = "Set Yomitan Frequency Dictionary URL..."
 CLEAR_YOMITAN_FREQUENCY_URL_ACTION_LABEL = "Clear Yomitan Frequency Dictionary URL"
@@ -83,7 +83,7 @@ def run_sort_now() -> None:
             force=True,
         ),
         success=_on_sort_success,
-    ).with_progress("Prioritizing new Kiku cards...").failure(
+    ).with_progress("Prioritizing new VN cards...").failure(
         _on_sort_failure
     ).run_in_background()
 
@@ -286,7 +286,7 @@ def _on_refresh_success(lookup: FrequencyLookup) -> None:
         elif lookup.source_kind == "bundled":
             message += "\n\nUsing the bundled snapshot instead."
         else:
-            message += "\n\nFalling back to Kiku FreqSort only."
+            message += "\n\nFalling back to the configured FreqSort field only."
 
     details = "\n".join(lookup.warnings)
     if details:
@@ -334,7 +334,7 @@ def _on_frequency_list_selected(config: Any, lookup: FrequencyLookup) -> None:
     elif lookup.source_kind == "bundled":
         message += "\n\nThe live download failed, so the bundled snapshot will be used."
     elif lookup.source_kind == "none":
-        message += "\n\nNo usable Jiten data was available; the sorter will fall back to Kiku FreqSort."
+        message += "\n\nNo usable Jiten data was available; the sorter will fall back to the configured FreqSort field."
 
     details = "\n".join(lookup.warnings)
     if details:

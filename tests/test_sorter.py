@@ -99,7 +99,15 @@ class _FakeNote(dict):
 
 
 class _FakeSortCard:
-    def __init__(self, card_id: int, note_id: int, due: int, expression: str, freqsort: str = "") -> None:
+    def __init__(
+        self,
+        card_id: int,
+        note_id: int,
+        due: int,
+        expression: str,
+        freqsort: str = "",
+        model_name: str = "Kiku",
+    ) -> None:
         self.id = card_id
         self.nid = note_id
         self.due = due
@@ -107,12 +115,13 @@ class _FakeSortCard:
         self.type = 0
         self.did = 100
         self._note = _FakeNote({"Expression": expression, "FreqSort": freqsort})
+        self._model_name = model_name
 
     def note(self) -> _FakeNote:
         return self._note
 
     def note_type(self) -> dict[str, str]:
-        return {"name": "Kiku"}
+        return {"name": self._model_name}
 
 
 class _FakeScheduler:
@@ -215,6 +224,22 @@ class SorterRankSourceTests(unittest.TestCase):
 
         self.assertEqual(summary["topPreview"][0]["rankSource"], "freqsort")
         self.assertEqual(summary["topPreview"][0]["rank"], 42)
+
+    def test_default_config_accepts_lapis_cards(self) -> None:
+        sorter.load_frequency_lookup = lambda _config: FrequencyLookup(
+            ranks={"漢字": 1.0},
+            source_url="https://example.test/index.json",
+            warnings=(),
+            source_kind="yomitan",
+        )
+        col = _FakeSortCollection(
+            [_FakeSortCard(1, 10, 1, "漢字", "99", model_name="Lapis")]
+        )
+
+        summary = sorter.run_sort_on_collection(col, AddonConfig(), "test", force=True)
+
+        self.assertEqual(summary["candidateCount"], 1)
+        self.assertEqual(summary["topPreview"][0]["rankSource"], "yomitan")
 
 
 if __name__ == "__main__":
