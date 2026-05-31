@@ -27,10 +27,10 @@ def iter_package_files(addon_root: Path) -> list[Path]:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
-    addon_root = repo_root / "addon" / "anki_vn_sorter"
+    addon_root = repo_root / "addon" / "anki_sorter"
     dist_dir = repo_root / "dist"
     dist_dir.mkdir(parents=True, exist_ok=True)
-    output_path = dist_dir / "anki_vn_sorter.ankiaddon"
+    output_path = dist_dir / "anki_sorter.ankiaddon"
 
     with ZipFile(output_path, "w", compression=ZIP_DEFLATED) as archive:
         for path in iter_package_files(addon_root):

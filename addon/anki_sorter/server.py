@@ -91,7 +91,7 @@ class LocalSorterServerManager:
         except ConfigValidationError as error:
             self.stop()
             showWarning(
-                "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages)
+                "Anki Sorter configuration is invalid.\n\n" + "\n".join(error.messages)
             )
             return
         self.apply_config(config)
@@ -113,7 +113,7 @@ class LocalSorterServerManager:
             server = SorterHTTPServer(self, config.http_port)
         except OSError as error:
             showWarning(
-                f"Anki VN Sorter could not start its local server on port {config.http_port}.\n\n{error}"
+                f"Anki Sorter could not start its local server on port {config.http_port}.\n\n{error}"
             )
             return False
 
@@ -182,7 +182,7 @@ class LocalSorterServerManager:
         with self._lock:
             config = self._config
         if config is None:
-            raise RuntimeError("The Anki VN Sorter server is not configured.")
+            raise RuntimeError("The Anki Sorter server is not configured.")
         return config
 
     def _run_collection_task_sync(self, task: Callable[[Any], T]) -> T:

@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-from anki_vn_sorter.jiten_lists import (
+from anki_sorter.jiten_lists import (
     DEFAULT_JITEN_FREQUENCY_LIST_ID,
     dropdown_options,
     get_frequency_list_definition,

@@ -9,16 +9,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-from anki_vn_sorter.config import AddonConfig
-import anki_vn_sorter.jiten as jiten
-from anki_vn_sorter.jiten import (
+from anki_sorter.config import AddonConfig
+import anki_sorter.jiten as jiten
+from anki_sorter.jiten import (
     FrequencyParseError,
     discover_visual_novel_csv_url,
     load_frequency_lookup,
     parse_frequency_csv,
     refresh_frequency_lookup,
 )
-from anki_vn_sorter.yomitan_frequency import YomitanLoadError, YomitanLoadResult
+from anki_sorter.yomitan_frequency import YomitanLoadError, YomitanLoadResult
 
 
 class ParseFrequencyCsvTests(unittest.TestCase):

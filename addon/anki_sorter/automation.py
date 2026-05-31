@@ -46,7 +46,7 @@ class AutoSortManager:
             config = load_config()
         except ConfigValidationError as error:
             showWarning(
-                "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
+                "Anki Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
                 parent=mw,
             )
             return
@@ -78,7 +78,7 @@ class AutoSortManager:
                 background_future.result()
             except Exception as error:
                 if not self._profile_closing:
-                    showWarning(f"Anki VN Sorter automatic run failed.\n\n{error}", parent=mw)
+                    showWarning(f"Anki Sorter automatic run failed.\n\n{error}", parent=mw)
 
         mw.taskman.run_in_background(
             background_task,

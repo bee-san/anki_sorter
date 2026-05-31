@@ -14,7 +14,7 @@ from scripts.package_addon import iter_package_files
 class PackageAddonTests(unittest.TestCase):
     def test_iter_package_files_skips_runtime_and_bytecode_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            addon_root = Path(temp_dir) / "anki_vn_sorter"
+            addon_root = Path(temp_dir) / "anki_sorter"
             addon_root.mkdir(parents=True)
 
             (addon_root / "addon.py").write_text("# addon\n", encoding="utf-8")

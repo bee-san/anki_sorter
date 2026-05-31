@@ -108,9 +108,9 @@ class UiYomitanMenuTests(unittest.TestCase):
         DummyQueryOp.instances = []
         DummyInputDialog.next_text = ("", False)
         DummyInputDialog.next_item = ("", False)
-        package = types.ModuleType("anki_vn_sorter")
-        package.__path__ = [str(ROOT / "addon" / "anki_vn_sorter")]  # type: ignore[attr-defined]
-        sys.modules["anki_vn_sorter"] = package
+        package = types.ModuleType("anki_sorter")
+        package.__path__ = [str(ROOT / "addon" / "anki_sorter")]  # type: ignore[attr-defined]
+        sys.modules["anki_sorter"] = package
 
         aqt = types.ModuleType("aqt")
         setattr(aqt, "mw", self.mw)
@@ -131,8 +131,8 @@ class UiYomitanMenuTests(unittest.TestCase):
         setattr(utils, "showWarning", lambda *args, **kwargs: None)
         setattr(utils, "tooltip", lambda *args, **kwargs: None)
         sys.modules["aqt.utils"] = utils
-        sys.modules.pop("anki_vn_sorter.ui", None)
-        self.ui = importlib.import_module("anki_vn_sorter.ui")
+        sys.modules.pop("anki_sorter.ui", None)
+        self.ui = importlib.import_module("anki_sorter.ui")
         setattr(
             self.ui,
             "refresh_frequency_lookup",
@@ -152,8 +152,8 @@ class UiYomitanMenuTests(unittest.TestCase):
         menu = self.mw.form.menuTools.menus[-1]
         labels = [action.text for action in menu.actions]
 
-        self.assertIn("Sort VN Cards Now", labels)
-        self.assertNotIn("Sort Kiku VN Cards Now", labels)
+        self.assertIn("Sort Cards Now", labels)
+        self.assertNotIn("Sort Kiku Cards Now", labels)
         self.assertIn("Set Yomitan Frequency Dictionary URL...", labels)
         self.assertIn("Clear Yomitan Frequency Dictionary URL", labels)
         self.assertIn("Refresh Current Frequency Source Now", labels)

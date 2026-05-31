@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Benchmark Anki VN Sorter ranking strategies.
+"""Benchmark Anki Sorter ranking strategies.
 
 The benchmark is intentionally deterministic and local-only. It does not touch an
 Anki collection. It imports the real ranking code, evaluates preference cases
-that describe the desired queue behavior, measures a synthetic VN-like card set,
+that describe the desired queue behavior, measures a synthetic Japanese sentence-like card set,
 and emits an objective score that an optimization loop can compare.
 """
 
@@ -23,12 +23,12 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-from anki_vn_sorter.config import (  # noqa: E402
+from anki_sorter.config import (  # noqa: E402
     STRATEGY_BALANCED_EASE_V1,
     STRATEGY_EASY_FIRST_TIERED_V1,
     STRATEGY_FREQUENCY_FIRST_SOFT_V1,
 )
-from anki_vn_sorter.ranking import CardInput, score_cards  # noqa: E402
+from anki_sorter.ranking import CardInput, score_cards  # noqa: E402
 
 STRATEGIES = (
     STRATEGY_FREQUENCY_FIRST_SOFT_V1,
@@ -70,7 +70,7 @@ def make_card(
 
 
 def preference_cases() -> list[PreferenceCase]:
-    """High-signal behavioral constraints for a useful Kiku VN queue."""
+    """High-signal behavioral constraints for a useful Japanese sentence queue."""
 
     return [
         PreferenceCase(
@@ -156,7 +156,7 @@ def synthetic_cards(size: int, seed: int) -> list[CardInput]:
             raw_rank = None
             rank_source = None
         else:
-            # Log-uniform ranks approximate the long tail of VN/Japanese vocab.
+            # Log-uniform ranks approximate the long tail of Japanese vocab.
             raw_rank = round(10 ** rng.uniform(0.0, math.log10(50_000)), 3)
             rank_source = "freqsort" if source_roll < 0.16 else "jiten"
         cards.append(
@@ -334,7 +334,7 @@ def evaluate_strategy(strategy: str, size: int, seed: int, repeat: int) -> dict[
 
 def render_human(result: dict[str, Any]) -> str:
     if "results" in result:
-        lines = ["Anki VN Sorter ranking benchmark", ""]
+        lines = ["Anki Sorter ranking benchmark", ""]
         for entry in result["results"]:
             lines.append(render_human(entry))
             lines.append("")
@@ -361,7 +361,7 @@ def render_human(result: dict[str, Any]) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Benchmark Anki VN Sorter ranking behavior.")
+    parser = argparse.ArgumentParser(description="Benchmark Anki Sorter ranking behavior.")
     parser.add_argument(
         "--strategy",
         choices=STRATEGIES,

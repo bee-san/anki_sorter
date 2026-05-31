@@ -64,7 +64,7 @@ def run_sort_on_collection(
             candidate_count=_int_from_summary(previous_summary, "candidateCount"),
             repositioned_count=0,
             strategy=config.strategy,
-            warnings=("Anki VN Sorter already completed a run for this profile today.",),
+            warnings=("Anki Sorter already completed a run for this profile today.",),
             top_preview=tuple(_top_preview_from_summary(previous_summary)),
         )
         return summary.to_dict()

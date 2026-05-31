@@ -1,6 +1,6 @@
 # Frequency data attribution
 
-Anki VN Sorter bundles and can download frequency data derived from [Jiten](https://jiten.moe/).
+Anki Sorter bundles and can download frequency data derived from [Jiten](https://jiten.moe/).
 
 Jiten frequency-list data is licensed under [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/).
 

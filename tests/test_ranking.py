@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-from anki_vn_sorter.config import (
+from anki_sorter.config import (
     DEFAULT_TIER_ORDER,
     STRATEGY_BALANCED_EASE_V1,
     STRATEGY_EASY_FIRST_TIERED_V1,
@@ -15,7 +15,7 @@ from anki_vn_sorter.config import (
     TIER_ALL_KANJI_KNOWN,
     TIER_KANA_ONLY,
 )
-from anki_vn_sorter.ranking import CardInput, parse_freqsort, score_cards
+from anki_sorter.ranking import CardInput, parse_freqsort, score_cards
 
 
 class RankingTests(unittest.TestCase):

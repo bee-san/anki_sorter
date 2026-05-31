@@ -63,7 +63,7 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
 
-          package = Path('dist/anki_vn_sorter.ankiaddon')
+          package = Path('dist/anki_sorter.ankiaddon')
           required = {
               '__init__.py',
               'addon.py',
@@ -75,7 +75,7 @@ jobs:
           forbidden_suffixes = ('.pyc', '.pyo')
 
           if not package.exists():
-              raise SystemExit('dist/anki_vn_sorter.ankiaddon was not created')
+              raise SystemExit('dist/anki_sorter.ankiaddon was not created')
 
           with ZipFile(package) as archive:
               names = set(archive.namelist())
@@ -98,15 +98,15 @@ jobs:
       - name: Write release notes
         run: |
           set -euo pipefail
-          sha256sum dist/anki_vn_sorter.ankiaddon > dist/anki_vn_sorter.ankiaddon.sha256
-          checksum="$(cut -d' ' -f1 dist/anki_vn_sorter.ankiaddon.sha256)"
+          sha256sum dist/anki_sorter.ankiaddon > dist/anki_sorter.ankiaddon.sha256
+          checksum="$(cut -d' ' -f1 dist/anki_sorter.ankiaddon.sha256)"
           cat > release-notes.md <<EOF
           Built by GitHub Actions from tag ${{ steps.release_tag.outputs.tag }}.
 
-          Install anki_vn_sorter.ankiaddon from the release assets.
+          Install anki_sorter.ankiaddon from the release assets.
 
           SHA-256:
-          $checksum  anki_vn_sorter.ankiaddon
+          $checksum  anki_sorter.ankiaddon
           EOF
 
       - name: Publish GitHub release asset
@@ -117,14 +117,14 @@ jobs:
           set -euo pipefail
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" \
-              dist/anki_vn_sorter.ankiaddon \
-              dist/anki_vn_sorter.ankiaddon.sha256 \
+              dist/anki_sorter.ankiaddon \
+              dist/anki_sorter.ankiaddon.sha256 \
               --clobber
           else
             gh release create "$RELEASE_TAG" \
-              dist/anki_vn_sorter.ankiaddon \
-              dist/anki_vn_sorter.ankiaddon.sha256 \
+              dist/anki_sorter.ankiaddon \
+              dist/anki_sorter.ankiaddon.sha256 \
               --verify-tag \
-              --title "Anki VN Sorter $RELEASE_TAG" \
+              --title "Anki Sorter $RELEASE_TAG" \
               --notes-file release-notes.md
           fi

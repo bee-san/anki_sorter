@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a Ralph-style optimization loop for the Anki VN Sorter ranking algorithm.
+"""Run a Ralph-style optimization loop for the Anki Sorter ranking algorithm.
 
 The loop is intentionally conservative: it creates scratch copies of the repo,
 asks an external agent command to produce variants, benchmarks those variants,
@@ -190,7 +190,7 @@ def build_prompt(
     if prior_winner:
         prior_text = json.dumps(prior_winner, ensure_ascii=False, indent=2, sort_keys=True)
 
-    return f"""You are optimizing the Anki VN Sorter ranking algorithm in this scratch repo.
+    return f"""You are optimizing the Anki Sorter ranking algorithm in this scratch repo.
 
 Iteration: {iteration}
 Variant: {variant}
@@ -203,9 +203,9 @@ Prior best variant, if any:
 {prior_text}
 
 Task:
-1. Inspect addon/anki_vn_sorter/ranking.py, README.md, and tests/test_ranking.py.
+1. Inspect addon/anki_sorter/ranking.py, README.md, and tests/test_ranking.py.
 2. Invent one concrete algorithmic improvement for frequency_first_soft_v1.
-3. Keep the product goal: prioritize useful common VN/Kiku cards while keeping the top of queue readable and not painful.
+3. Keep the product goal: prioritize useful common Japanese cards while keeping the top of queue readable and not painful.
 4. Edit only files that are directly relevant to ranking behavior, docs, or tests.
 5. Do not touch a live Anki collection, install the add-on, package the add-on, call network APIs, push to GitHub, or edit files outside this scratch repo.
 6. Run these checks before finishing:
