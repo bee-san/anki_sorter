@@ -32,7 +32,11 @@ class SorterRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/sort":
-            payload = self._read_json_body()
+            try:
+                payload = self._read_json_body()
+            except ValueError as error:
+                self._serve_error(HTTPStatus.BAD_REQUEST, str(error))
+                return
             self._serve_json(lambda: self.server.manager.run_sort(_acknowledged_from_payload(payload)))
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -48,10 +52,25 @@ class SorterRequestHandler(BaseHTTPRequestHandler):
             length = 0
         if length <= 0:
             return {}
-        payload = json.loads(self.rfile.read(length).decode("utf-8"))
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError(f"Invalid JSON body: {error}") from error
         if isinstance(payload, dict):
             return payload
         return {}
+
+    def _serve_error(self, status: HTTPStatus, error: str) -> None:
+        message = json.dumps(
+            {"ready": False, "error": error},
+            ensure_ascii=True,
+        ).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(message)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(message)
 
     def _serve_json(self, payload_factory: Callable[[], dict[str, Any]]) -> None:
         try:
@@ -78,7 +97,7 @@ class SorterRequestHandler(BaseHTTPRequestHandler):
 
 
 def _acknowledged_from_payload(payload: dict[str, Any]) -> bool:
-    return payload.get("acknowledged") is True
+    return payload.get("acknowledgedAllDevicesSynced") is True
 
 
 class SorterHTTPServer(ThreadingHTTPServer):

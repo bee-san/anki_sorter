@@ -102,12 +102,26 @@ class DummyInputDialog:
         return DummyInputDialog.next_item
 
 
+class DummyMessageBox:
+    Yes = 1
+    No = 2
+    next_answer = No
+    questions: list[tuple[Any, str, str, int, int]] = []
+
+    @staticmethod
+    def question(parent: Any, title: str, text: str, buttons: int, default_button: int) -> int:
+        DummyMessageBox.questions.append((parent, title, text, buttons, default_button))
+        return DummyMessageBox.next_answer
+
+
 class UiYomitanMenuTests(unittest.TestCase):
     def setUp(self) -> None:
         self.mw = DummyMainWindow()
         DummyQueryOp.instances = []
         DummyInputDialog.next_text = ("", False)
         DummyInputDialog.next_item = ("", False)
+        DummyMessageBox.next_answer = DummyMessageBox.No
+        DummyMessageBox.questions = []
         package = types.ModuleType("anki_sorter")
         package.__path__ = [str(ROOT / "addon" / "anki_sorter")]  # type: ignore[attr-defined]
         sys.modules["anki_sorter"] = package
@@ -125,6 +139,7 @@ class UiYomitanMenuTests(unittest.TestCase):
         setattr(qt, "QAction", DummyAction)
         setattr(qt, "QInputDialog", DummyInputDialog)
         setattr(qt, "QMenu", DummyMenu)
+        setattr(qt, "QMessageBox", DummyMessageBox)
         sys.modules["aqt.qt"] = qt
 
         utils = types.ModuleType("aqt.utils")
@@ -200,6 +215,38 @@ class UiYomitanMenuTests(unittest.TestCase):
 
         self.assertEqual(self.mw.addonManager.raw_config["jitenFrequencyListId"], selected_id)
         self.assertEqual(self.mw.addonManager.raw_config["yomitanFrequencyIndexUrl"], "")
+
+    def test_manual_sort_cancelled_when_sync_confirmation_declined(self) -> None:
+        self.mw.addonManager.raw_config = {}
+        DummyMessageBox.next_answer = DummyMessageBox.No
+
+        self.ui.run_sort_now()
+
+        self.assertEqual(len(DummyQueryOp.instances), 0)
+        self.assertEqual(len(DummyMessageBox.questions), 1)
+        confirmation_copy = DummyMessageBox.questions[0][2]
+        self.assertIn("AnkiDroid", confirmation_copy)
+        self.assertIn("offline reviews", confirmation_copy)
+        self.assertIn("sync conflicts", confirmation_copy)
+        self.assertIn("sync this desktop after all devices", confirmation_copy)
+
+    def test_manual_sort_runs_after_sync_confirmation_acceptance(self) -> None:
+        captured: dict[str, Any] = {}
+        self.mw.addonManager.raw_config = {}
+        DummyMessageBox.next_answer = DummyMessageBox.Yes
+
+        def fake_run_sort_on_collection(*args: Any, **kwargs: Any) -> dict[str, object]:
+            captured.update(kwargs)
+            return {"applied": False, "candidateCount": 0, "repositionedCount": 0}
+
+        self.ui.run_sort_on_collection = fake_run_sort_on_collection
+
+        self.ui.run_sort_now()
+
+        self.assertEqual(len(DummyQueryOp.instances), 1)
+        self.assertTrue(captured["acknowledged"])
+        self.assertTrue(captured["force"])
+        self.assertEqual(captured["trigger"], self.ui.SORT_TRIGGER_MANUAL)
 
 
 if __name__ == "__main__":

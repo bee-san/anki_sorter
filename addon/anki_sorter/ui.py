@@ -4,7 +4,7 @@ from typing import Any
 
 from aqt import mw
 from aqt.operations import QueryOp
-from aqt.qt import QAction, QInputDialog, QMenu
+from aqt.qt import QAction, QInputDialog, QMenu, QMessageBox
 from aqt.utils import showWarning, tooltip
 
 from .config import (
@@ -75,6 +75,9 @@ def run_sort_now() -> None:
         )
         return
 
+    if not _confirm_all_devices_synced():
+        return
+
     QueryOp(
         parent=mw,
         op=lambda col: run_sort_on_collection(
@@ -89,6 +92,25 @@ def run_sort_now() -> None:
     ).with_progress("Prioritizing new cards...").failure(
         _on_sort_failure
     ).run_in_background()
+
+
+def _confirm_all_devices_synced() -> bool:
+    message = (
+        "Before sorting, confirm every device has synced to AnkiWeb.\n\n"
+        "This includes AnkiDroid and any device that may have offline reviews. "
+        "Sorting before those reviews sync can cause sync conflicts or bury cards in the wrong order.\n\n"
+        "After confirming all devices are synced, run this sort, then sync this desktop after all devices before reviewing elsewhere."
+    )
+    return (
+        QMessageBox.question(
+            mw,
+            "Confirm all devices are synced",
+            message,
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        == QMessageBox.Yes
+    )
 
 
 def refresh_current_frequency_source_now() -> None:
