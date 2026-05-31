@@ -52,7 +52,7 @@ The default setup targets **Kiku** and **Lapis**-style Japanese sentence cards. 
 - **Kiku + Lapis defaults** — ships with sensible defaults for common Japanese sentence-card setups.
 - **Safe scope** — only eligible new cards are repositioned; reviews, learning cards, and suspended cards are left alone.
 - **Offline fallback** — uses cached/bundled data when the network is unavailable.
-- **Desktop automation** — can run after Anki sync, which is safer for AnkiDroid workflows.
+- **Desktop-safe defaults** — starts in manual mode with mobile sync guardrails for AnkiDroid workflows.
 - **Manual controls** — sort, refresh, and switch frequency sources from Anki's Tools menu.
 - **Local API** — exposes `GET /health` and `POST /sort` for scripts and optional timers.
 
@@ -106,7 +106,45 @@ The default automation mode is intentionally manual-only:
 }
 ```
 
-That means Anki Desktop does not automatically reorder after sync/profile open. Use `desktop_only_allow_auto` only for profiles where desktop-only automatic sorting is an intentional opt-in.
+That means Anki Desktop does not automatically reorder after sync/profile open. This is intentional: Anki Desktop cannot detect offline AnkiDroid reviews that have not synced yet.
+
+If you review on AnkiDroid, use this manual safe sequence before sorting:
+
+1. Sync AnkiDroid and wait for it to finish.
+2. Sync Anki Desktop and resolve any sync prompts.
+3. Run `Tools -> Anki Sorter -> Sort Cards Now`.
+4. Sync Anki Desktop again before reviewing on another device.
+
+Use `desktop_only_allow_auto` only for profiles where desktop-only automatic sorting is an intentional opt-in and no phone or tablet can have unsynced reviews.
+
+## AnkiDroid sync safety
+
+Anki Sorter repositions new cards on Anki Desktop. That can be safe only after all review devices have already pushed their latest state and Desktop has pulled it. A desktop add-on cannot inspect your phone for offline AnkiDroid reviews, so `after_sync` on Desktop is not a proof that the phone is current.
+
+The safe default is:
+
+```json
+{
+  "autoSortMode": "manual_only",
+  "syncSafetyMode": "mobile_guarded"
+}
+```
+
+Only opt into desktop automation with both of these settings when the profile is genuinely desktop-only:
+
+```json
+{
+  "autoSortMode": "after_sync",
+  "syncSafetyMode": "desktop_only_allow_auto"
+}
+```
+
+AnkiDroid can help keep the phone synced, but this is hygiene rather than a correctness guarantee for desktop sorting:
+
+- Native AnkiDroid setting: the manual says **Automatic synchronization** syncs "every time you open and close the app" and is limited to "once every ten minutes". It is not a time-of-day scheduler. Source: [AnkiDroid manual, Preferences -> AnkiDroid -> Automatic synchronization](https://docs.ankidroid.org/manual.html#settings).
+- Tasker / Automate: the AnkiDroid API documents an experimental sync intent, `Action:com.ichi2.anki.DO_SYNC`, and warns that a "server is busy" error is shown if sync is attempted "more often than once every 5 minutes". It also says the target must be `Activity`, and links Tasker and Automate examples. Source: [AnkiDroid API, Sync Intent](https://github.com/ankidroid/Anki-Android/wiki/AnkiDroid-API#sync-intent).
+
+Even with native auto-sync, Tasker, or Automate enabled, keep the manual safe sequence above when using Anki Sorter on a collection also reviewed on AnkiDroid.
 
 ## How it sorts
 
