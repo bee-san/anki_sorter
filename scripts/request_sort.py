@@ -43,7 +43,7 @@ def main() -> int:
         return 0
 
     try:
-        response = request_json(f"{base_url}/sort", method="POST", body={})
+        response = request_json(f"{base_url}/sort", method="POST", body=build_sort_request_body())
     except HTTPError as error:
         payload = read_error_payload(error)
         print(
@@ -86,6 +86,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--force", action="store_true", help="Ignore the once-per-day guard.")
     return parser.parse_args()
+
+
+def build_sort_request_body() -> dict[str, object]:
+    return {"acknowledged": True}
 
 
 def request_json(url: str, method: str = "GET", body: dict[str, object] | None = None) -> dict[str, object]:

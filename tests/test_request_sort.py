@@ -9,7 +9,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.request_sort import load_last_success, profile_name_from_health, save_last_success
+from scripts.request_sort import (
+    build_sort_request_body,
+    load_last_success,
+    profile_name_from_health,
+    save_last_success,
+)
 
 
 class RequestSortStateTests(unittest.TestCase):
@@ -44,6 +49,9 @@ class RequestSortStateTests(unittest.TestCase):
                 }
             },
         )
+
+    def test_api_sort_request_body_acknowledges_sync_risk(self) -> None:
+        self.assertEqual(build_sort_request_body(), {"acknowledged": True})
 
 
 if __name__ == "__main__":

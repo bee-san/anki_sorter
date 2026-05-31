@@ -16,6 +16,7 @@ from .config import (
 )
 from .jiten import FrequencyLookup, refresh_frequency_lookup
 from .jiten_lists import dropdown_options, get_frequency_list_definition
+from .safety import SORT_TRIGGER_MANUAL
 from .server import _profile_name
 from .sorter import run_sort_on_collection
 
@@ -81,6 +82,8 @@ def run_sort_now() -> None:
             config,
             _profile_name(),
             force=True,
+            trigger=SORT_TRIGGER_MANUAL,
+            acknowledged=True,
         ),
         success=_on_sort_success,
     ).with_progress("Prioritizing new cards...").failure(

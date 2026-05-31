@@ -12,6 +12,7 @@ from aqt import gui_hooks, mw
 from aqt.utils import showWarning
 
 from .config import AddonConfig, ConfigValidationError, load_config
+from .safety import SORT_TRIGGER_API
 from .sorter import build_health_snapshot, run_sort_on_collection
 from .state import load_state
 
@@ -31,12 +32,26 @@ class SorterRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/sort":
-            self._serve_json(self.server.manager.run_sort)
+            payload = self._read_json_body()
+            self._serve_json(lambda: self.server.manager.run_sort(_acknowledged_from_payload(payload)))
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
     def log_message(self, format: str, *args: object) -> None:
         return
+
+    def _read_json_body(self) -> dict[str, Any]:
+        raw_length = self.headers.get("Content-Length", "0")
+        try:
+            length = int(raw_length)
+        except ValueError:
+            length = 0
+        if length <= 0:
+            return {}
+        payload = json.loads(self.rfile.read(length).decode("utf-8"))
+        if isinstance(payload, dict):
+            return payload
+        return {}
 
     def _serve_json(self, payload_factory: Callable[[], dict[str, Any]]) -> None:
         try:
@@ -60,6 +75,10 @@ class SorterRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(encoded)
+
+
+def _acknowledged_from_payload(payload: dict[str, Any]) -> bool:
+    return payload.get("acknowledged") is True
 
 
 class SorterHTTPServer(ThreadingHTTPServer):
@@ -161,7 +180,7 @@ class LocalSorterServerManager:
             **snapshot,
         }
 
-    def run_sort(self) -> dict[str, Any]:
+    def run_sort(self, acknowledged: bool = False) -> dict[str, Any]:
         config = self._require_config()
         profile_name = _profile_name()
         summary = self._run_collection_task_sync(
@@ -170,6 +189,8 @@ class LocalSorterServerManager:
                 config,
                 profile_name,
                 force=False,
+                trigger=SORT_TRIGGER_API,
+                acknowledged=acknowledged,
             )
         )
         return {

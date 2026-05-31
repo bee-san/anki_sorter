@@ -13,6 +13,7 @@ from .config import (
     ConfigValidationError,
     load_config,
 )
+from .safety import SORT_TRIGGER_AFTER_SYNC, SORT_TRIGGER_PROFILE_OPEN
 from .server import _profile_name, _append_hook_callback, _callback_key, _hook_callbacks, _remove_hook_callback
 from .sorter import run_sort_on_collection
 
@@ -31,15 +32,15 @@ class AutoSortManager:
 
     def _on_profile_did_open(self, *args: Any) -> None:
         self._profile_closing = False
-        self._maybe_schedule_auto_sort(AUTO_SORT_MODE_PROFILE_OPEN)
+        self._maybe_schedule_auto_sort(AUTO_SORT_MODE_PROFILE_OPEN, SORT_TRIGGER_PROFILE_OPEN)
 
     def _on_profile_will_close(self, *args: Any) -> None:
         self._profile_closing = True
 
     def _on_sync_did_finish(self, *args: Any) -> None:
-        self._maybe_schedule_auto_sort(AUTO_SORT_MODE_AFTER_SYNC)
+        self._maybe_schedule_auto_sort(AUTO_SORT_MODE_AFTER_SYNC, SORT_TRIGGER_AFTER_SYNC)
 
-    def _maybe_schedule_auto_sort(self, required_mode: str) -> None:
+    def _maybe_schedule_auto_sort(self, required_mode: str, trigger: str) -> None:
         if self._profile_closing or not getattr(mw, "col", None):
             return
         try:
@@ -52,9 +53,9 @@ class AutoSortManager:
             return
         if config.auto_sort_mode != required_mode:
             return
-        QTimer.singleShot(0, lambda: self._run_auto_sort(config))
+        QTimer.singleShot(0, lambda: self._run_auto_sort(config, trigger))
 
-    def _run_auto_sort(self, config: Any) -> None:
+    def _run_auto_sort(self, config: Any, trigger: str) -> None:
         if self._profile_closing or self._sort_running:
             return
         col = getattr(mw, "col", None)
@@ -70,6 +71,8 @@ class AutoSortManager:
                 config,
                 profile_name,
                 force=False,
+                trigger=trigger,
+                acknowledged=False,
             )
 
         def on_done(background_future: Future[dict[str, Any]]) -> None:
