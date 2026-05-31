@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-from anki_vn_sorter.config import (
+from anki_sorter.config import (
     AUTO_SORT_MODE_AFTER_SYNC,
     AUTO_SORT_MODE_PROFILE_OPEN,
     ConfigValidationError,
@@ -30,7 +30,7 @@ from anki_vn_sorter.config import (
     build_default_mature_query,
     parse_config,
 )
-from anki_vn_sorter.jiten_lists import (
+from anki_sorter.jiten_lists import (
     DEFAULT_JITEN_FREQUENCY_LIST_ID,
     LEGACY_DEFAULT_VN_CSV_URL,
 )

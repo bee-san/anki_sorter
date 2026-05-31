@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/anki-vn-sorter.svg" alt="Anki VN Sorter" width="100%">
+  <img src="assets/anki-sorter.svg" alt="Anki Sorter" width="100%">
 </p>
 
-<h1 align="center">Anki VN Sorter</h1>
+<h1 align="center">Anki Sorter</h1>
 
 <p align="center">
   <strong>Frequency-first new-card ordering for Japanese sentence decks.</strong><br>
@@ -34,9 +34,9 @@
 
 Large Japanese sentence decks can be noisy: some new cards are common and readable, while others are rare, kana-heavy, or packed with unknown kanji. Default Anki ordering does not know the difference.
 
-**Anki VN Sorter** adds a small ranking layer before new cards are shown:
+**Anki Sorter** adds a small ranking layer before new cards are shown:
 
-| Without it | With Anki VN Sorter |
+| Without it | With Anki Sorter |
 | --- | --- |
 | New cards follow deck/insertion/random order. | New cards are reordered by frequency and readability. |
 | Common but useful cards can be buried. | High-value cards rise earlier. |
@@ -60,12 +60,12 @@ The default setup targets **Kiku** and **Lapis**-style Japanese sentence cards. 
 
 Install the packaged add-on from the latest GitHub Release:
 
-1. Download `anki_vn_sorter.ankiaddon` from [the latest release](https://github.com/bee-san/anki_sorter/releases/latest).
-   - Direct download: [`anki_vn_sorter.ankiaddon`](https://github.com/bee-san/anki_sorter/releases/latest/download/anki_vn_sorter.ankiaddon)
+1. Download `anki_sorter.ankiaddon` from [the latest release](https://github.com/bee-san/anki_sorter/releases/latest).
+   - Direct download: [`anki_sorter.ankiaddon`](https://github.com/bee-san/anki_sorter/releases/latest/download/anki_sorter.ankiaddon)
    - Do not install GitHub's source-code ZIP; use the `.ankiaddon` asset.
 2. Open Anki Desktop.
 3. Go to `Tools -> Add-ons -> Install from file...`.
-4. Select the downloaded `anki_vn_sorter.ankiaddon`.
+4. Select the downloaded `anki_sorter.ankiaddon`.
 5. Restart Anki.
 
 Release packages are built by GitHub Actions. Pull requests and pushes to `main` also build the `.ankiaddon` as a CI artifact.
@@ -75,14 +75,14 @@ For development, link the source folder into Anki's add-on directory:
 ```bash
 # macOS
 mkdir -p "$HOME/Library/Application Support/Anki2/addons21"
-ln -sfn "$PWD/addon/anki_vn_sorter" "$HOME/Library/Application Support/Anki2/addons21/anki_vn_sorter"
+ln -sfn "$PWD/addon/anki_sorter" "$HOME/Library/Application Support/Anki2/addons21/anki_sorter"
 
 # Linux
 mkdir -p ~/.local/share/Anki2/addons21
-ln -sfn "$PWD/addon/anki_vn_sorter" ~/.local/share/Anki2/addons21/anki_vn_sorter
+ln -sfn "$PWD/addon/anki_sorter" ~/.local/share/Anki2/addons21/anki_sorter
 ```
 
-On Windows, place or link `addon/anki_vn_sorter` under `%APPDATA%\Anki2\addons21\anki_vn_sorter`.
+On Windows, place or link `addon/anki_sorter` under `%APPDATA%\Anki2\addons21\anki_sorter`.
 
 ## Quick start
 
@@ -94,8 +94,8 @@ On Windows, place or link `addon/anki_vn_sorter` under `%APPDATA%\Anki2\addons21
    (note:"Kiku" or note:"Lapis") is:new -is:suspended
    ```
 
-4. Run `Tools -> Anki VN Sorter -> Sort VN Cards Now`.
-5. Optional: run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`.
+4. Run `Tools -> Anki Sorter -> Sort Cards Now`.
+5. Optional: run `Tools -> Anki Sorter -> Refresh Current Frequency Source Now`.
 
 The default automation mode is:
 
@@ -132,7 +132,7 @@ Final ordering uses score first, then raw rank, expression length, current due p
 
 ## Configuration
 
-Open `Tools -> Add-ons -> Anki VN Sorter -> Config` inside Anki.
+Open `Tools -> Add-ons -> Anki Sorter -> Config` inside Anki.
 
 Recommended default core settings:
 
@@ -174,20 +174,20 @@ Important settings:
 By default, the add-on uses Bee's updateable Yomitan frequency dictionary and falls back to cached/bundled data when needed. You can switch to a built-in Jiten list from:
 
 ```text
-Tools -> Anki VN Sorter -> Choose Jiten Frequency List...
+Tools -> Anki Sorter -> Choose Jiten Frequency List...
 ```
 
-Attribution: frequency data is derived from [Jiten](https://jiten.moe/). Jiten frequency data is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Keep `addon/anki_vn_sorter/data/ATTRIBUTION.md` with redistributed packages.
+Attribution: frequency data is derived from [Jiten](https://jiten.moe/). Jiten frequency data is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Keep `addon/anki_sorter/data/ATTRIBUTION.md` with redistributed packages.
 
 ## Menus and API
 
 Anki menu actions:
 
-- `Tools -> Anki VN Sorter -> Sort VN Cards Now`
-- `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
-- `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...`
-- `Tools -> Anki VN Sorter -> Clear Yomitan Frequency Dictionary URL`
-- `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`
+- `Tools -> Anki Sorter -> Sort Cards Now`
+- `Tools -> Anki Sorter -> Choose Jiten Frequency List...`
+- `Tools -> Anki Sorter -> Set Yomitan Frequency Dictionary URL...`
+- `Tools -> Anki Sorter -> Clear Yomitan Frequency Dictionary URL`
+- `Tools -> Anki Sorter -> Refresh Current Frequency Source Now`
 
 Local endpoints while Anki is running:
 
@@ -214,10 +214,10 @@ The default `after_sync` mode is best for most desktop + AnkiDroid workflows. If
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp systemd/anki-vn-sorter.service ~/.config/systemd/user/
-cp systemd/anki-vn-sorter.timer ~/.config/systemd/user/
+cp systemd/anki-sorter.service ~/.config/systemd/user/
+cp systemd/anki-sorter.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now anki-vn-sorter.timer
+systemctl --user enable --now anki-sorter.timer
 ```
 
 The timer only works while Anki is running and the target profile is open.
@@ -246,8 +246,8 @@ Repo layout:
 
 | Path | Purpose |
 | --- | --- |
-| `addon/anki_vn_sorter/` | Anki add-on source. |
-| `addon/anki_vn_sorter/data/` | Bundled fallback frequency data and attribution. |
+| `addon/anki_sorter/` | Anki add-on source. |
+| `addon/anki_sorter/data/` | Bundled fallback frequency data and attribution. |
 | `scripts/package_addon.py` | `.ankiaddon` package builder. |
 | `scripts/request_sort.py` | Optional local API helper. |
 | `systemd/` | Optional user timer templates. |
@@ -264,9 +264,9 @@ If sorting does nothing:
 
 If frequency ranking is missing:
 
-- run `Tools -> Anki VN Sorter -> Refresh Current Frequency Source Now`,
+- run `Tools -> Anki Sorter -> Refresh Current Frequency Source Now`,
 - confirm the configured Yomitan/Jiten source can be reached,
-- confirm bundled snapshots are present under `addon/anki_vn_sorter/data/`,
+- confirm bundled snapshots are present under `addon/anki_sorter/data/`,
 - confirm your notes have `FreqSort` if you rely on the deck fallback.
 
 If the study order still looks wrong:

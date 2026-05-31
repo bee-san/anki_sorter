@@ -19,13 +19,13 @@ from .jiten_lists import dropdown_options, get_frequency_list_definition
 from .server import _profile_name
 from .sorter import run_sort_on_collection
 
-TOOLS_MENU_TITLE = "Anki VN Sorter"
-RUN_ACTION_LABEL = "Sort VN Cards Now"
+TOOLS_MENU_TITLE = "Anki Sorter"
+RUN_ACTION_LABEL = "Sort Cards Now"
 CHOOSE_FREQUENCY_LIST_ACTION_LABEL = "Choose Jiten Frequency List..."
 SET_YOMITAN_FREQUENCY_URL_ACTION_LABEL = "Set Yomitan Frequency Dictionary URL..."
 CLEAR_YOMITAN_FREQUENCY_URL_ACTION_LABEL = "Clear Yomitan Frequency Dictionary URL"
 REFRESH_FREQUENCY_SOURCE_ACTION_LABEL = "Refresh Current Frequency Source Now"
-TOOLS_MENU_ATTR = "_anki_vn_sorter_menu"
+TOOLS_MENU_ATTR = "_anki_sorter_menu"
 
 
 def register_tools_menu() -> None:
@@ -69,7 +69,7 @@ def run_sort_now() -> None:
         config = load_config()
     except ConfigValidationError as error:
         showWarning(
-            "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
+            "Anki Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
             parent=mw,
         )
         return
@@ -83,7 +83,7 @@ def run_sort_now() -> None:
             force=True,
         ),
         success=_on_sort_success,
-    ).with_progress("Prioritizing new VN cards...").failure(
+    ).with_progress("Prioritizing new cards...").failure(
         _on_sort_failure
     ).run_in_background()
 
@@ -93,7 +93,7 @@ def refresh_current_frequency_source_now() -> None:
         config = load_config()
     except ConfigValidationError as error:
         showWarning(
-            "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
+            "Anki Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
             parent=mw,
         )
         return
@@ -116,7 +116,7 @@ def set_yomitan_frequency_url() -> None:
         config = load_config()
     except ConfigValidationError as error:
         showWarning(
-            "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
+            "Anki Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
             parent=mw,
         )
         return
@@ -157,7 +157,7 @@ def clear_yomitan_frequency_url() -> None:
         updated_config = parse_config(raw_config)
     except ConfigValidationError as error:
         showWarning(
-            "Anki VN Sorter configuration is invalid after clearing the Yomitan URL.\n\n"
+            "Anki Sorter configuration is invalid after clearing the Yomitan URL.\n\n"
             + "\n".join(error.messages),
             parent=mw,
         )
@@ -175,7 +175,7 @@ def choose_jiten_frequency_list() -> None:
         config = load_config()
     except ConfigValidationError as error:
         showWarning(
-            "Anki VN Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
+            "Anki Sorter configuration is invalid.\n\n" + "\n".join(error.messages),
             parent=mw,
         )
         return
@@ -212,7 +212,7 @@ def choose_jiten_frequency_list() -> None:
         updated_config = load_config()
     except ConfigValidationError as error:
         showWarning(
-            "Anki VN Sorter configuration is invalid after saving.\n\n"
+            "Anki Sorter configuration is invalid after saving.\n\n"
             + "\n".join(error.messages),
             parent=mw,
         )
@@ -246,20 +246,20 @@ def _refresh_progress_message(config: Any) -> str:
 
 def _on_sort_success(summary: dict[str, Any]) -> None:
     if summary.get("skippedForToday"):
-        tooltip("Anki VN Sorter already ran for this profile today.", parent=mw)
+        tooltip("Anki Sorter already ran for this profile today.", parent=mw)
         return
     if summary.get("applied"):
         tooltip(
-            f"Anki VN Sorter repositioned {summary.get('repositionedCount', 0)} new cards.",
+            f"Anki Sorter repositioned {summary.get('repositionedCount', 0)} new cards.",
             parent=mw,
         )
         return
 
-    tooltip("Anki VN Sorter found nothing to change.", parent=mw)
+    tooltip("Anki Sorter found nothing to change.", parent=mw)
 
 
 def _on_sort_failure(error: Exception) -> None:
-    showWarning(f"Anki VN Sorter failed.\n\n{error}", parent=mw)
+    showWarning(f"Anki Sorter failed.\n\n{error}", parent=mw)
 
 
 def _on_refresh_success(lookup: FrequencyLookup) -> None:

@@ -23,22 +23,22 @@ def main() -> int:
     except HTTPError as error:
         payload = read_error_payload(error)
         print(
-            f"Anki VN Sorter health check failed: {payload or error}",
+            f"Anki Sorter health check failed: {payload or error}",
             file=sys.stderr,
         )
         return 1
     except URLError as error:
-        print(f"Anki VN Sorter is unavailable: {error}")
+        print(f"Anki Sorter is unavailable: {error}")
         return 0
 
     if not health.get("ready"):
-        print("Anki VN Sorter is not ready yet.")
+        print("Anki Sorter is not ready yet.")
         return 0
 
     profile_name = profile_name_from_health(health)
     if not args.force and load_last_success(state_path, profile_name) == today:
         print(
-            f'Anki VN Sorter already succeeded today ({today}) for profile "{profile_name}".'
+            f'Anki Sorter already succeeded today ({today}) for profile "{profile_name}".'
         )
         return 0
 
@@ -47,41 +47,41 @@ def main() -> int:
     except HTTPError as error:
         payload = read_error_payload(error)
         print(
-            f"Anki VN Sorter returned an error: {payload or error}",
+            f"Anki Sorter returned an error: {payload or error}",
             file=sys.stderr,
         )
         return 1
     except URLError as error:
-        print(f"Anki VN Sorter sort request could not connect: {error}")
+        print(f"Anki Sorter sort request could not connect: {error}")
         return 0
 
     summary = response.get("summary", {})
     if not isinstance(summary, dict):
-        print("Anki VN Sorter returned an invalid summary payload.", file=sys.stderr)
+        print("Anki Sorter returned an invalid summary payload.", file=sys.stderr)
         return 1
 
     save_last_success(state_path, profile_name, today)
     candidate_count = summary.get("candidateCount", 0)
     repositioned_count = summary.get("repositionedCount", 0)
     if summary.get("skippedForToday"):
-        print(f'Anki VN Sorter already ran today for profile "{profile_name}".')
+        print(f'Anki Sorter already ran today for profile "{profile_name}".')
         return 0
     if summary.get("applied"):
         print(
-            f"Anki VN Sorter repositioned {repositioned_count} cards out of {candidate_count} candidates."
+            f"Anki Sorter repositioned {repositioned_count} cards out of {candidate_count} candidates."
         )
     else:
-        print(f"Anki VN Sorter found {candidate_count} candidates and made no changes.")
+        print(f"Anki Sorter found {candidate_count} candidates and made no changes.")
     return 0
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Request a daily Anki VN sort run.")
+    parser = argparse.ArgumentParser(description="Request a daily Anki Sorter run.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8767)
     parser.add_argument(
         "--state-dir",
-        default="~/.local/state/anki-vn-sorter",
+        default="~/.local/state/anki-sorter",
         help="Directory that stores the once-per-day requester state.",
     )
     parser.add_argument("--force", action="store_true", help="Ignore the once-per-day guard.")

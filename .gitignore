@@ -3,6 +3,6 @@ __pycache__/
 dist/
 .tmp/
 .hermes/
-addon/anki_vn_sorter/user_files/
-addon/anki_vn_sorter/meta.json
+addon/anki_sorter/user_files/
+addon/anki_sorter/meta.json
 .codex

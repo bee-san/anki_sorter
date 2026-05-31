@@ -1,4 +1,4 @@
-Anki VN Sorter settings
+Anki Sorter settings
 
 You can edit these keys in Anki's add-on config editor.
 
@@ -106,7 +106,7 @@ Frequency settings:
   - `global`
 
   You can change this from:
-  - `Tools -> Anki VN Sorter -> Choose Jiten Frequency List...`
+  - `Tools -> Anki Sorter -> Choose Jiten Frequency List...`
 
 - `yomitanFrequencyIndexUrl`
   Yomitan frequency dictionary index or ZIP URL.
@@ -114,8 +114,8 @@ Frequency settings:
   Leave it as `""` to use the selected Jiten list.
   When set, Yomitan is tried first and Jiten remains the fallback if refresh fails.
   You can set or clear this from:
-  - `Tools -> Anki VN Sorter -> Set Yomitan Frequency Dictionary URL...`
-  - `Tools -> Anki VN Sorter -> Clear Yomitan Frequency Dictionary URL`
+  - `Tools -> Anki Sorter -> Set Yomitan Frequency Dictionary URL...`
+  - `Tools -> Anki Sorter -> Clear Yomitan Frequency Dictionary URL`
 
   Choosing a Jiten list from the menu clears this Yomitan override.
 

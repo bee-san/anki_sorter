@@ -7,11 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-import anki_vn_sorter.sorter as sorter
-from anki_vn_sorter.config import AddonConfig
-from anki_vn_sorter.jiten import FrequencyLookup
-from anki_vn_sorter.sorter import _deck_option_warnings
-from anki_vn_sorter.state import SorterState
+import anki_sorter.sorter as sorter
+from anki_sorter.config import AddonConfig
+from anki_sorter.jiten import FrequencyLookup
+from anki_sorter.sorter import _deck_option_warnings
+from anki_sorter.state import SorterState
 
 
 class _FakeCard:

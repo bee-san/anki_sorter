@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
-from anki_vn_sorter.yomitan_frequency import (  # noqa: E402
+from anki_sorter.yomitan_frequency import (  # noqa: E402
     YomitanFrequencyParseError,
     YomitanLoadError,
     load_yomitan_frequency_lookup,

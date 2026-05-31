@@ -58,7 +58,7 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
 
-          package = Path('dist/anki_vn_sorter.ankiaddon')
+          package = Path('dist/anki_sorter.ankiaddon')
           required = {
               '__init__.py',
               'addon.py',
@@ -70,7 +70,7 @@ jobs:
           forbidden_suffixes = ('.pyc', '.pyo')
 
           if not package.exists():
-              raise SystemExit('dist/anki_vn_sorter.ankiaddon was not created')
+              raise SystemExit('dist/anki_sorter.ankiaddon was not created')
 
           with ZipFile(package) as archive:
               names = set(archive.namelist())
@@ -93,6 +93,6 @@ jobs:
       - name: Upload add-on artifact
         uses: actions/upload-artifact@v4
         with:
-          name: anki_vn_sorter.ankiaddon
-          path: dist/anki_vn_sorter.ankiaddon
+          name: anki_sorter.ankiaddon
+          path: dist/anki_sorter.ankiaddon
           if-no-files-found: error

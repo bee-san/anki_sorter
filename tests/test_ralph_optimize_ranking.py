@@ -19,7 +19,7 @@ spec.loader.exec_module(ralph_optimize_ranking)
 
 class RalphOptimizeRankingTests(unittest.TestCase):
     def test_copy_repo_to_scratch_excludes_ignored_user_files(self) -> None:
-        private_path = ROOT / "addon" / "anki_vn_sorter" / "user_files" / "private-test-cache.txt"
+        private_path = ROOT / "addon" / "anki_sorter" / "user_files" / "private-test-cache.txt"
         private_path.parent.mkdir(parents=True, exist_ok=True)
         private_path.write_text("private cache contents\n", encoding="utf-8")
         try:
@@ -27,8 +27,8 @@ class RalphOptimizeRankingTests(unittest.TestCase):
                 scratch = Path(temp_dir) / "scratch"
                 ralph_optimize_ranking.copy_repo_to_scratch(scratch)
 
-                self.assertTrue((scratch / "addon" / "anki_vn_sorter" / "config.py").exists())
-                self.assertFalse((scratch / "addon" / "anki_vn_sorter" / "user_files" / "private-test-cache.txt").exists())
+                self.assertTrue((scratch / "addon" / "anki_sorter" / "config.py").exists())
+                self.assertFalse((scratch / "addon" / "anki_sorter" / "user_files" / "private-test-cache.txt").exists())
         finally:
             private_path.unlink(missing_ok=True)
 

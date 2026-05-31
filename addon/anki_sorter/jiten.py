@@ -265,7 +265,7 @@ def _default_fetch_text(url: str, timeout_seconds: int) -> str:
     request = Request(
         url,
         headers={
-            "User-Agent": "anki-vn-sorter/1.0",
+            "User-Agent": "anki-sorter/1.0",
             "Accept": "text/plain,text/csv,text/html,*/*",
         },
     )
