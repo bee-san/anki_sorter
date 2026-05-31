@@ -8,9 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon"))
 
 from anki_sorter.config import (
-    AUTO_SORT_MODE_AFTER_SYNC,
+    AUTO_SORT_MODE_MANUAL_ONLY,
     AUTO_SORT_MODE_PROFILE_OPEN,
     ConfigValidationError,
+    SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO,
+    SYNC_SAFETY_MODE_MOBILE_GUARDED,
     DEFAULT_JITEN_VN_CSV_URL,
     DEFAULT_KANA_ONLY_MULTIPLIER,
     DEFAULT_MODEL_NAMES,
@@ -120,9 +122,32 @@ class ConfigTests(unittest.TestCase):
         )
         self.assertEqual(config.auto_sort_mode, AUTO_SORT_MODE_PROFILE_OPEN)
 
-    def test_default_auto_sort_mode_is_after_sync(self) -> None:
+    def test_default_auto_sort_mode_is_manual_only(self) -> None:
         config = parse_config({})
-        self.assertEqual(config.auto_sort_mode, AUTO_SORT_MODE_AFTER_SYNC)
+        self.assertEqual(config.auto_sort_mode, AUTO_SORT_MODE_MANUAL_ONLY)
+        self.assertEqual(config.to_dict()["autoSortMode"], AUTO_SORT_MODE_MANUAL_ONLY)
+
+    def test_default_sync_safety_mode_is_mobile_guarded(self) -> None:
+        config = parse_config({})
+        self.assertEqual(config.sync_safety_mode, SYNC_SAFETY_MODE_MOBILE_GUARDED)
+        self.assertEqual(config.to_dict()["syncSafetyMode"], SYNC_SAFETY_MODE_MOBILE_GUARDED)
+
+    def test_desktop_only_sync_safety_mode_round_trip(self) -> None:
+        config = parse_config(
+            {"syncSafetyMode": SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO}
+        )
+        self.assertEqual(
+            config.sync_safety_mode,
+            SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO,
+        )
+        self.assertEqual(
+            config.to_dict()["syncSafetyMode"],
+            SYNC_SAFETY_MODE_DESKTOP_ONLY_ALLOW_AUTO,
+        )
+
+    def test_invalid_sync_safety_mode_is_rejected(self) -> None:
+        with self.assertRaises(ConfigValidationError):
+            parse_config({"syncSafetyMode": "reckless"})
 
     def test_default_jiten_frequency_list_is_global(self) -> None:
         config = parse_config({})

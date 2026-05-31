@@ -97,15 +97,16 @@ On Windows, place or link `addon/anki_sorter` under `%APPDATA%\Anki2\addons21\an
 4. Run `Tools -> Anki Sorter -> Sort Cards Now`.
 5. Optional: run `Tools -> Anki Sorter -> Refresh Current Frequency Source Now`.
 
-The default automation mode is:
+The default automation mode is intentionally manual-only:
 
 ```json
 {
-  "autoSortMode": "after_sync"
+  "autoSortMode": "manual_only",
+  "syncSafetyMode": "mobile_guarded"
 }
 ```
 
-That means Anki Desktop reorders new cards after sync completes. If you also study on AnkiDroid, this avoids racing mobile changes.
+That means Anki Desktop does not automatically reorder after sync/profile open. Use `desktop_only_allow_auto` only for profiles where desktop-only automatic sorting is an intentional opt-in.
 
 ## How it sorts
 
@@ -143,7 +144,8 @@ Recommended default core settings:
   "expressionField": "Expression",
   "freqSortField": "FreqSort",
   "strategy": "frequency_first_soft_v1",
-  "autoSortMode": "after_sync"
+  "autoSortMode": "manual_only",
+  "syncSafetyMode": "mobile_guarded"
 }
 ```
 
@@ -166,6 +168,7 @@ Important settings:
 | `expressionField` | Field containing the Japanese expression. |
 | `freqSortField` | Optional deck-provided frequency fallback. |
 | `autoSortMode` | `after_sync`, `profile_open`, or `manual_only`. |
+| `syncSafetyMode` | `mobile_guarded` by default; `desktop_only_allow_auto` opt-in for automation. |
 | `jitenFrequencyListId` | Built-in Jiten list: `global`, `visual_novel`, `novel`, `anime`, etc. |
 | `yomitanFrequencyIndexUrl` | Optional Yomitan frequency dictionary URL. |
 
@@ -210,7 +213,7 @@ For the sorted order to show reliably, deck options should preserve gathered ord
 
 ## Optional systemd timer
 
-The default `after_sync` mode is best for most desktop + AnkiDroid workflows. If you still want a timer, templates live in `systemd/`:
+The default `manual_only` mode is safest for desktop + AnkiDroid workflows. If you still want a timer, templates live in `systemd/`:
 
 ```bash
 mkdir -p ~/.config/systemd/user

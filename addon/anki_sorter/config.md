@@ -38,9 +38,20 @@ Main settings:
   - `manual_only`
 
   Recommended default:
-  - `after_sync`
+  - `manual_only`
 
-  This is the safest mode if you also study on AnkiDroid, because the reorder happens after desktop sync, not before it.
+  Manual-only sorting avoids automatic desktop reorders racing mobile sync state.
+
+- `syncSafetyMode`
+  Additional guard for sync-adjacent automation.
+  Valid values:
+  - `mobile_guarded`
+  - `desktop_only_allow_auto`
+
+  Recommended default:
+  - `mobile_guarded`
+
+  Use `desktop_only_allow_auto` only for profiles where desktop-only automatic sorting is an intentional opt-in.
 
 Ranking settings:
 
