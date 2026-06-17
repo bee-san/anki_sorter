@@ -66,6 +66,7 @@ DEFAULT_KANA_ONLY_MULTIPLIER = 0.92
 DEFAULT_UNKNOWN_KANJI_PENALTY_STEP = 0.18
 DEFAULT_UNKNOWN_KANJI_PENALTY_CAP = 0.54
 DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS = 0.04
+DEFAULT_READING_EXPOSURE_WEIGHT = 0.18
 VALID_STRATEGIES = {
     STRATEGY_FREQUENCY_FIRST_SOFT_V1,
     STRATEGY_EASY_FIRST_TIERED_V1,
@@ -115,6 +116,7 @@ class AddonConfig:
     unknown_kanji_penalty_step: float = DEFAULT_UNKNOWN_KANJI_PENALTY_STEP
     unknown_kanji_penalty_cap: float = DEFAULT_UNKNOWN_KANJI_PENALTY_CAP
     partial_known_coverage_bonus: float = DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS
+    reading_exposure_weight: float = DEFAULT_READING_EXPOSURE_WEIGHT
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -143,6 +145,7 @@ class AddonConfig:
             "unknownKanjiPenaltyStep": self.unknown_kanji_penalty_step,
             "unknownKanjiPenaltyCap": self.unknown_kanji_penalty_cap,
             "partialKnownCoverageBonus": self.partial_known_coverage_bonus,
+            "readingExposureWeight": self.reading_exposure_weight,
         }
 
     @property
@@ -270,6 +273,14 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         maximum=1.0,
         errors=errors,
     )
+    reading_exposure_weight = _coerce_float_in_range(
+        raw.get("readingExposureWeight"),
+        DEFAULT_READING_EXPOSURE_WEIGHT,
+        "readingExposureWeight",
+        minimum=0.0,
+        maximum=1.0,
+        errors=errors,
+    )
 
     if http_port > 65535:
         errors.append("httpPort must be between 1 and 65535.")
@@ -327,6 +338,7 @@ def parse_config(raw: Mapping[str, Any] | None) -> AddonConfig:
         unknown_kanji_penalty_step=unknown_kanji_penalty_step,
         unknown_kanji_penalty_cap=unknown_kanji_penalty_cap,
         partial_known_coverage_bonus=partial_known_coverage_bonus,
+        reading_exposure_weight=reading_exposure_weight,
     )
 
 
@@ -437,6 +449,7 @@ def _should_migrate_default_tiered_strategy(raw: Mapping[str, Any]) -> bool:
             "unknownKanjiPenaltyStep",
             "unknownKanjiPenaltyCap",
             "partialKnownCoverageBonus",
+            "readingExposureWeight",
         )
     )
 

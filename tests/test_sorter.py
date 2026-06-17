@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import gzip
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -138,14 +141,24 @@ class _FakeScheduler:
         return type("Result", (), {"count": len(card_ids)})()
 
 
+class _FakeMediaManager:
+    def __init__(self, media_dir: Path) -> None:
+        self._media_dir = media_dir
+
+    def dir(self) -> str:
+        return str(self._media_dir)
+
+
 class _FakeSortCollection:
-    def __init__(self, cards: list[_FakeSortCard]) -> None:
+    def __init__(self, cards: list[_FakeSortCard], media_dir: Path | None = None) -> None:
         self._cards = {card.id: card for card in cards}
         self.decks = _FakeDeckManager(
             {100: {"new": {"order": 0}, "newSortOrder": 1, "newGatherPriority": 1}},
             {100: {"name": "Kiku"}},
         )
         self.sched = _FakeScheduler()
+        if media_dir is not None:
+            self.media = _FakeMediaManager(media_dir)
 
     def find_cards(self, query: str) -> list[int]:
         if query == "is:review":
@@ -230,6 +243,48 @@ class SorterRankSourceTests(unittest.TestCase):
         self.assertEqual(summary["topPreview"][0]["rankSource"], "freqsort")
         self.assertEqual(summary["topPreview"][0]["rank"], 42)
 
+    def test_reading_exposure_media_boosts_matching_cards(self) -> None:
+        sorter.load_frequency_lookup = lambda _config: FrequencyLookup(
+            ranks={},
+            source_url=None,
+            warnings=(),
+            source_kind="none",
+        )
+        media_dir = Path(tempfile.mkdtemp())
+        write_gzip_json(
+            media_dir / "_reading_exposure_words.json.gz",
+            {
+                "schemaVersion": 1,
+                "words": [
+                    {
+                        "word": "読む",
+                        "totalCount": 30,
+                        "last7DaysCount": 10,
+                        "last14DaysCount": 15,
+                        "last31DaysCount": 20,
+                        "lastSeenAtMillis": 999,
+                    }
+                ],
+            },
+        )
+        col = _FakeSortCollection(
+            [
+                _FakeSortCard(1, 10, 1, "既読", ""),
+                _FakeSortCard(2, 20, 2, "読む", ""),
+            ],
+            media_dir=media_dir,
+        )
+
+        summary = sorter.run_sort_on_collection(col, AddonConfig(reading_exposure_weight=0.5), "test", force=True)
+
+        self.assertEqual([2, 1], col.sched.repositioned_card_ids)
+        self.assertEqual("読む", summary["topPreview"][0]["expression"])
+        self.assertGreater(summary["topPreview"][0]["readingExposureScore"], 0.0)
+        self.assertEqual(30, summary["topPreview"][0]["readingExposureTotalCount"])
+        self.assertEqual(10, summary["topPreview"][0]["readingExposureLast7DaysCount"])
+        self.assertEqual(15, summary["topPreview"][0]["readingExposureLast14DaysCount"])
+        self.assertEqual(20, summary["topPreview"][0]["readingExposureLast31DaysCount"])
+
     def test_default_config_accepts_lapis_cards(self) -> None:
         sorter.load_frequency_lookup = lambda _config: FrequencyLookup(
             ranks={"漢字": 1.0},
@@ -261,6 +316,11 @@ class SorterRankSourceTests(unittest.TestCase):
 
         self.assertEqual(summary["candidateCount"], 0)
         self.assertIsNone(col.sched.repositioned_card_ids)
+
+
+def write_gzip_json(path: Path, payload: dict) -> None:
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
 
 
 class SorterSyncSafetyTests(unittest.TestCase):

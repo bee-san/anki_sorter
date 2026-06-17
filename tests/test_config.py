@@ -17,6 +17,7 @@ from anki_sorter.config import (
     DEFAULT_KANA_ONLY_MULTIPLIER,
     DEFAULT_MODEL_NAMES,
     DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS,
+    DEFAULT_READING_EXPOSURE_WEIGHT,
     DEFAULT_SCOPE_QUERY,
     DEFAULT_TIER_ORDER,
     DEFAULT_UNKNOWN_KANJI_PENALTY_CAP,
@@ -96,6 +97,7 @@ class ConfigTests(unittest.TestCase):
                 "unknownKanjiPenaltyStep": 0.2,
                 "unknownKanjiPenaltyCap": 0.5,
                 "partialKnownCoverageBonus": 0.06,
+                "readingExposureWeight": 0.25,
             }
         )
         self.assertEqual(config.strategy, STRATEGY_FREQUENCY_FIRST_SOFT_V1)
@@ -106,6 +108,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.unknown_kanji_penalty_step, 0.2)
         self.assertEqual(config.unknown_kanji_penalty_cap, 0.5)
         self.assertEqual(config.partial_known_coverage_bonus, 0.06)
+        self.assertEqual(config.reading_exposure_weight, 0.25)
 
     def test_build_default_mature_query_handles_multiple_models(self) -> None:
         query = build_default_mature_query(("Kiku", "Kiku Alt"), 21)
@@ -210,6 +213,11 @@ class ConfigTests(unittest.TestCase):
             config.partial_known_coverage_bonus,
             DEFAULT_PARTIAL_KNOWN_COVERAGE_BONUS,
         )
+        self.assertEqual(config.reading_exposure_weight, DEFAULT_READING_EXPOSURE_WEIGHT)
+
+    def test_reading_exposure_weight_must_be_between_zero_and_one(self) -> None:
+        with self.assertRaises(ConfigValidationError):
+            parse_config({"readingExposureWeight": 1.1})
 
     def test_legacy_default_tiered_strategy_migrates_to_soft_default(self) -> None:
         config = parse_config(

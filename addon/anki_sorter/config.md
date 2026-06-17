@@ -119,6 +119,10 @@ Ranking settings:
   Small bonus for partially-known cards in `frequency_first_soft_v1`.
   This only applies to cards that still have at least one unknown kanji.
 
+- `readingExposureWeight`
+  Optional boost from Reading Exposure Exporter media in Anki's
+  `collection.media` directory. `0.0` disables the boost. The default is `0.18`.
+
 - `tierOrder`
   Controls the tier order used by `easy_first_tiered_v1`.
   It does not affect `frequency_first_soft_v1`.

@@ -8,6 +8,7 @@ from .config import AddonConfig
 from .jiten import FrequencyLookup, load_frequency_lookup
 from .normalization import extract_kanji_chars, strip_html_text
 from .ranking import CardInput, parse_freqsort, score_cards
+from .reading_exposure import load_reading_exposure_index_from_collection
 from .safety import SORT_TRIGGER_MANUAL, decide_sort_safety
 from .state import ProfileState, load_state, save_state
 
@@ -99,6 +100,8 @@ def run_sort_on_collection(
     warnings: list[str] = []
     lookup = load_frequency_lookup(config)
     warnings.extend(lookup.warnings)
+    reading_exposure = load_reading_exposure_index_from_collection(col)
+    warnings.extend(reading_exposure.warnings)
 
     known_kanji = _build_known_kanji_set(col, config)
     card_ids = list(map(int, col.find_cards(config.scope_query)))
@@ -128,6 +131,7 @@ def run_sort_on_collection(
         frequency_source = _lookup_rank_source(lookup)
         raw_rank = frequency_rank if frequency_rank is not None else freqsort_rank
         rank_source = frequency_source if frequency_rank is not None else "freqsort" if freqsort_rank is not None else None
+        exposure_stats = reading_exposure.stat_for(normalized_expression)
 
         candidates.append(
             CardInput(
@@ -140,6 +144,20 @@ def run_sort_on_collection(
                 total_kanji_count=len(kanji_chars),
                 raw_rank=raw_rank,
                 rank_source=rank_source,
+                reading_exposure_score=exposure_stats.score if exposure_stats is not None else 0.0,
+                reading_exposure_total_count=exposure_stats.total_count if exposure_stats is not None else 0,
+                reading_exposure_last_7_days_count=(
+                    exposure_stats.last_7_days_count if exposure_stats is not None else 0
+                ),
+                reading_exposure_last_14_days_count=(
+                    exposure_stats.last_14_days_count if exposure_stats is not None else 0
+                ),
+                reading_exposure_last_31_days_count=(
+                    exposure_stats.last_31_days_count if exposure_stats is not None else 0
+                ),
+                reading_exposure_last_seen_at_millis=(
+                    exposure_stats.last_seen_at_millis if exposure_stats is not None else 0
+                ),
             )
         )
 
@@ -175,6 +193,7 @@ def run_sort_on_collection(
         unknown_kanji_penalty_step=config.unknown_kanji_penalty_step,
         unknown_kanji_penalty_cap=config.unknown_kanji_penalty_cap,
         partial_known_coverage_bonus=config.partial_known_coverage_bonus,
+        reading_exposure_weight=config.reading_exposure_weight,
     )
     sorted_card_ids = [scored.card.card_id for scored in scored_cards]
     current_order = [
@@ -213,6 +232,12 @@ def run_sort_on_collection(
                 "unknownKanjiCount": scored.card.unknown_kanji_count,
                 "rankSource": scored.card.rank_source,
                 "rank": scored.card.raw_rank,
+                "readingExposureScore": round(scored.reading_exposure_score, 4),
+                "readingExposureTotalCount": scored.card.reading_exposure_total_count,
+                "readingExposureLast7DaysCount": scored.card.reading_exposure_last_7_days_count,
+                "readingExposureLast14DaysCount": scored.card.reading_exposure_last_14_days_count,
+                "readingExposureLast31DaysCount": scored.card.reading_exposure_last_31_days_count,
+                "readingExposureLastSeenAtMillis": scored.card.reading_exposure_last_seen_at_millis,
             }
         )
 
