@@ -48,6 +48,7 @@ The default setup targets **Kiku** and **Lapis**-style Japanese sentence cards. 
 ## What it does
 
 - **Frequency-first ranking** — prioritizes cards with better ranks from the configured frequency source.
+- **Optional reading exposure boost** — uses `_reading_exposure_words.json.gz` from `collection.media` when another add-on exports it.
 - **Readability-aware tie breaking** — prefers cards that use kanji you have already matured.
 - **Kiku + Lapis defaults** — ships with sensible defaults for common Japanese sentence-card setups.
 - **Safe scope** — only eligible new cards are repositioned; reviews, learning cards, and suspended cards are left alone.
@@ -154,9 +155,10 @@ For each eligible new card, the add-on:
 
 1. reads the expression field,
 2. looks up a frequency rank,
-3. infers known kanji from matured cards,
-4. blends frequency with a soft readability multiplier,
-5. repositions matching new cards through Anki's internal scheduler API.
+3. loads optional Reading Exposure Exporter media from `collection.media`,
+4. infers known kanji from matured cards,
+5. blends frequency and reading exposure with a soft readability multiplier,
+6. repositions matching new cards through Anki's internal scheduler API.
 
 Default scoring shape:
 
@@ -166,6 +168,12 @@ Default scoring shape:
 | Kana-only | small configurable penalty |
 | Unknown kanji | configurable penalty per unknown kanji |
 | Partially-known kanji word | tiny coverage bonus |
+
+If `_reading_exposure_words.json.gz` exists in Anki's `collection.media`, the
+sorter adds a small frequency-like boost from that media file. The boost favors
+words seen in the last 7 days, still counts the last 14 and 31 day windows, and
+keeps a small lifetime-count component. Missing files are ignored; malformed
+files are reported in the sort summary warnings.
 
 Final ordering uses score first, then raw rank, expression length, current due position, template order, and card id for stable tie-breaking.
 
@@ -209,6 +217,7 @@ Important settings:
 | `syncSafetyMode` | `mobile_guarded` by default; `desktop_only_allow_auto` opt-in for automation. |
 | `jitenFrequencyListId` | Built-in Jiten list: `global`, `visual_novel`, `novel`, `anime`, etc. |
 | `yomitanFrequencyIndexUrl` | Optional Yomitan frequency dictionary URL. |
+| `readingExposureWeight` | Optional boost from Reading Exposure Exporter media. `0.0` disables it. |
 
 ## Frequency sources
 

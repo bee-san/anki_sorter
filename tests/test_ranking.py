@@ -30,6 +30,7 @@ class RankingTests(unittest.TestCase):
         rank_source: str | None,
         due: int | None = None,
         card_ord: int = 0,
+        reading_exposure_score: float = 0.0,
     ) -> CardInput:
         return CardInput(
             card_id=card_id,
@@ -41,6 +42,7 @@ class RankingTests(unittest.TestCase):
             total_kanji_count=total_kanji_count,
             raw_rank=raw_rank,
             rank_source=rank_source,
+            reading_exposure_score=reading_exposure_score,
         )
 
     def test_parse_freqsort(self) -> None:
@@ -254,6 +256,35 @@ class RankingTests(unittest.TestCase):
         scored = score_cards(cards, strategy=STRATEGY_FREQUENCY_FIRST_SOFT_V1)
         self.assertEqual([entry.card.card_id for entry in scored], [1, 2])
 
+    def test_default_soft_strategy_uses_reading_exposure_as_extra_frequency(self) -> None:
+        cards = [
+            self.make_card(
+                card_id=1,
+                expression="既読",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=200,
+                rank_source="jiten",
+            ),
+            self.make_card(
+                card_id=2,
+                expression="読む",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=210,
+                rank_source="jiten",
+                reading_exposure_score=1.0,
+            ),
+        ]
+        scored = score_cards(
+            cards,
+            strategy=STRATEGY_FREQUENCY_FIRST_SOFT_V1,
+            reading_exposure_weight=0.18,
+        )
+        self.assertEqual([entry.card.card_id for entry in scored], [2, 1])
+        self.assertGreater(scored[0].frequency_score, scored[1].frequency_score)
+        self.assertEqual(1.0, scored[0].reading_exposure_score)
+
     def test_tiered_strategy_keeps_known_kanji_above_one_unknown(self) -> None:
         cards = [
             self.make_card(
@@ -382,6 +413,33 @@ class RankingTests(unittest.TestCase):
             prefer_shorter_expressions=False,
         )
         self.assertEqual([entry.card.card_id for entry in scored], [1, 2])
+
+    def test_tiered_strategy_uses_reading_exposure_within_same_tier(self) -> None:
+        cards = [
+            self.make_card(
+                card_id=1,
+                expression="既読",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=100,
+                rank_source="jiten",
+            ),
+            self.make_card(
+                card_id=2,
+                expression="読む",
+                known_kanji_count=2,
+                total_kanji_count=2,
+                raw_rank=120,
+                rank_source="jiten",
+                reading_exposure_score=1.0,
+            ),
+        ]
+        scored = score_cards(
+            cards,
+            strategy=STRATEGY_EASY_FIRST_TIERED_V1,
+            reading_exposure_weight=0.18,
+        )
+        self.assertEqual([entry.card.card_id for entry in scored], [2, 1])
 
 
 if __name__ == "__main__":
